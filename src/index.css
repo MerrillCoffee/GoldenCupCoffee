@@ -1,0 +1,33 @@
+body {
+  background-color: #0d1117; /* GitHub Dark BG */
+  color: #c9d1d9;
+  margin: 0;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.nav-header {
+  background-color: #161b22;
+  border-bottom: 1px solid #30363d;
+  padding: 15px 20px 0 20px;
+  display: flex;
+  gap: 5px;
+}
+
+.nav-tab {
+  background-color: #238636; /* The green from your mockup */
+  color: white;
+  padding: 8px 16px;
+  text-decoration: none;
+  border-radius: 6px 6px 0 0;
+  border: 1px solid #30363d;
+  border-bottom: none;
+  font-weight: 600;
+}
+
+.nav-tab:hover {
+  background-color: #2ea043;
+}
+
+.content-area {
+  padding: 20px;
+}
