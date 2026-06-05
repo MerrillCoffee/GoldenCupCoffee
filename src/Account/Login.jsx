@@ -1,13 +1,14 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 
-export default function Account() {
-  const [isLoginMode, setIsLoginMode] = useState(true);
+export default function Login() {
+  const navigate = useNavigate();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState("");
   const [isSuccess, setIsSuccess] = useState(false);
 
-  const handleSubmit = async (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
     setMessage("");
     setIsSuccess(false);
@@ -17,10 +18,8 @@ export default function Account() {
       return;
     }
 
-    const endpoint = isLoginMode ? "/api/auth/login" : "/api/auth/register";
-
     try {
-      const response = await fetch(endpoint, {
+      const response = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ username, password }),
@@ -30,32 +29,24 @@ export default function Account() {
 
       if (response.ok) {
         setIsSuccess(true);
-        if (isLoginMode) {
-          localStorage.setItem("token", data.token);
-          localStorage.setItem("username", data.username);
-          setMessage(`Welcome back, ${data.username}! ☕`);
-          
-          setTimeout(() => window.location.reload(), 1000);
-        } else {
-          setMessage("Registration successful! Switch to login mode to sign in.");
-          setIsLoginMode(true);
-          setPassword("");
-        }
+        localStorage.setItem("token", data.token);
+        localStorage.setItem("username", data.username);
+        setMessage(`Welcome back, ${data.username}! ☕`);
+
+        setTimeout(() => window.location.reload(), 1000);
       } else {
-        setMessage(data.error || "An authentication error occurred.");
+        setMessage(data.error || "Invalid username or password.");
       }
     } catch (err) {
-      console.error("Auth error:", err);
-      setMessage("Could not connect to the authentication server.");
+      console.error("Login error:", err);
+      setMessage("Could not connect to the server.");
     }
   };
 
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("username");
-    setMessage("Logged out successfully.");
-    setIsSuccess(true);
-    setTimeout(() => window.location.reload(), 1000);
+    window.location.reload();
   };
 
   const loggedInUser = localStorage.getItem("username");
@@ -79,16 +70,15 @@ export default function Account() {
         >
           Sign Out
         </button>
-        {message && <p style={{ marginTop: "15px", color: "#2ea043" }}>{message}</p>}
       </div>
     );
   }
 
   return (
     <div style={{ padding: "20px", maxWidth: "400px", color: "#c9d1d9" }}>
-      <h2>{isLoginMode ? "Sign In to Golden Cup" : "Create an Account"}</h2>
+      <h2>Sign In to Golden Cup</h2>
       
-      <form onSubmit={handleSubmit} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px" }}>
+      <form onSubmit={handleLogin} style={{ display: "flex", flexDirection: "column", gap: "15px", marginTop: "20px" }}>
         <div style={{ display: "flex", flexDirection: "column", gap: "5px" }}>
           <label>Username</label>
           <input 
@@ -122,17 +112,17 @@ export default function Account() {
             marginTop: "10px"
           }}
         >
-          {isLoginMode ? "Login" : "Register"}
+          Login
         </button>
       </form>
 
       <p style={{ marginTop: "20px", fontSize: "0.9em", color: "#8b949e" }}>
-        {isLoginMode ? "New to Golden Cup Coffee? " : "Already have an account? "}
+        New to Golden Cup Coffee?{" "}
         <span 
-          onClick={() => { setIsLoginMode(!isLoginMode); setMessage(""); }}
+          onClick={() => navigate("/account/register")}
           style={{ color: "#58a6ff", cursor: "pointer", textDecoration: "underline" }}
         >
-          {isLoginMode ? "Create an account" : "Sign in here"}
+          Create an account
         </span>
       </p>
 

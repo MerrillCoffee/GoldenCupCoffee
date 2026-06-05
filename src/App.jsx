@@ -1,37 +1,38 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
-import Account from "./Account/account";
+import Account from "./account/account";
 import Brew from "./Brew/Brew";
 import Logs from "./Logs/Logs";
-import Learning from "./Learn/Learning";
-import Social from "./Social/Social";
+import Register from "./account/Register";
+import Login from "./account/Login";
+// Import other components as needed
 
 export default function App() {
-    const [token, setToken] = useState(null);
+  const [token, setToken] = useState(null);
 
-    return (
-        <BrowserRouter>
-            <div className="app-container">
-                <nav className="tabs-nav">
-                    <Link to="/brew" className="tab">Brew</Link>
-                    <Link to="/logs" className="tab">Logs</Link>
-                    <Link to="/learning" className="tab">Learning</Link>
-                    <Link to="/badges" className="tab">Badges</Link>
-                    <Link to="/social" className="tab">Social</Link>
-                    <Link to="/account" className="tab">Account</Link>
-                </nav>
+  return (
+    <BrowserRouter>
+        <div className="app-container">
+            <nav className="nav-header">
+                <Link to="/brew" className="nav-tab">Brew</Link>
+                <Link to="/logs" className="nav-tab">Logs</Link>
+                <Link to="/learning" className="nav-tab">Learning</Link>
+                <Link to="/social" className="nav-tab">Social</Link>
+                <Link to="/account" className="nav-tab">Account</Link>
+            </nav>
 
-            <main>
+            <main className="content-area">
                 <Routes>
                     <Route path="/brew" element={<Brew />} />
-                    <Route path="/logs" element={<Logs />} />
-                    <Route path="/learning" element={<Learning />} />
-                    <Route path="/social" element={<Social />} />
-                    <Route path="/account" element={<Account token={token} />} />
-                    <Route path="/" element={<Brew />} />
+                    <Route path="/logs" element={<Logs />}/>
+                    <Route path="/learning" element={<div>Learning Page Content</div>} />
+                    <Route path="/social" element={<div>Social Page Content</div>} />
+                    <Route path="/account" element={<Login />} />
+                    <Route path="/account/register" element={<Register />} />
+                    <Route path="/" element={<div>Welcome to Golden Cup! Click a tab to start.</div>} />
                 </Routes>
             </main>
         </div>
     </BrowserRouter>
   );
-}
+};

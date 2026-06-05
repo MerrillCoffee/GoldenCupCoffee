@@ -1,11 +1,12 @@
-const { Pool } = require('pg');
+import pg from 'pg';
+const { Pool } = pg;
 
 const pool = new Pool({
-  user: 'maxyf', 
+  user: 'maxyf',       
   host: 'localhost',
   database: 'golden_cup',
-  password: 'your_password',
+  password: '1237Kittles@',        
   port: 5432,
 });
 
-module.exports = pool;
+export default pool;
