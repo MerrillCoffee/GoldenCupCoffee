@@ -1,5 +1,16 @@
 import { useState, useEffect } from "react";
 
+// James Hoffmann standard method ratios used to calculate liquid yield
+const METHOD_RATIOS = {
+  "Drip Brew": 16.67,
+  "Pour Over": 16.67,
+  "French Press": 16.67,
+  "Espresso": 2,
+  "Aeropress": 11,
+  "Percolator": 15,
+  "Cold Brew": 8
+};
+
 export default function Logs() {
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -39,6 +50,23 @@ export default function Logs() {
     fetchLogs();
   }, []);
 
+  // --- Math Engine ---
+  const getLiquidOutput = (coffeeAmountStr, brewMethod) => {
+  
+    const grams = parseFloat(coffeeAmountStr);
+    if (isNaN(grams)) return coffeeAmountStr;
+
+    const ratio = METHOD_RATIOS[brewMethod] || 16.67;
+    
+    // Convert to water weight (1g water = 1ml water)
+    const waterMl = grams * ratio;
+    
+    // Convert milliliters to fluid ounces (ml / 29.57)
+    const fluidOunces = Math.round(waterMl / 29.57);
+
+    return `${fluidOunces} oz cup (${grams}g dry)`;
+  };
+
   if (loading) return <p style={{ color: "#8b949e", padding: "20px" }}>Warming up the kettle...</p>;
   if (error) return <p style={{ color: "#f85149", padding: "20px" }}>{error}</p>;
 
@@ -49,7 +77,9 @@ export default function Logs() {
       </h2>
 
       {history.length === 0 ? (
-        <p style={{ color: "#8b949e", marginTop: "20px" }}>No brews logged on this account yet. Go pull some shots!</p>
+        <p style={{ color: "#8b949e", marginTop: "20px" }}>
+          No brews logged on this account yet. Go pull some shots!
+        </p>
       ) : (
         <div className="logs-list" style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "20px" }}>
           {history.map((brew) => (
@@ -71,7 +101,7 @@ export default function Logs() {
                   {brew.region} — <span style={{ color: "#8b949e", fontSize: "0.9em", fontWeight: "normal" }}>{brew.brew_method}</span>
                 </h3>
                 <p style={{ margin: "0", color: "#c9d1d9", fontSize: "0.95em" }}>
-                  Ratio/Amount: <strong>{brew.coffee_amount}</strong> | Roast: <span style={{ color: "#79c0ff" }}>{brew.roast_type}</span>
+                  Liquid Output: <strong style={{ color: "#2ea043" }}>{getLiquidOutput(brew.coffee_amount, brew.brew_method)}</strong> | Roast: <span style={{ color: "#79c0ff" }}>{brew.roast_type}</span>
                 </p>
               </div>
               <div style={{ textAlign: "right", fontSize: "0.85em", color: "#8b949e" }}>

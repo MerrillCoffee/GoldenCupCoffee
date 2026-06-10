@@ -70,7 +70,7 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
 });
 
 app.post('/api/brews', authenticateToken, async (req, res) => {
-  const { region, coffee_amount, roast_type, brew_method } = req.body;
+  const { region, coffee_amount, roast_type, brew_method } = req.body
   try {
     const newBrew = await createBrew(req.user.id, region, coffee_amount, roast_type, brew_method);
     res.status(201).json(newBrew);
