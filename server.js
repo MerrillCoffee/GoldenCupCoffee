@@ -176,6 +176,32 @@ app.delete('/api/brews/:id', authenticateToken, async (req, res) => {
   }
 });
 
+// Social Routes
+
+app.get('/api/social/feed', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        b.id, b.region, b.coffee_amount, b.roast_type, b.brew_method, 
+        b.blurb, b.created_at,
+        u.username AS author,
+        (SELECT COUNT(*) FROM likes WHERE brew_id = b.id) AS like_count,
+        (SELECT COUNT(*) FROM comments WHERE brew_id = b.id) AS comment_count,
+        EXISTS(SELECT 1 FROM likes WHERE brew_id = b.id AND user_id = $1) AS has_liked,
+        EXISTS(SELECT 1 FROM saved_recipes WHERE brew_id = b.id AND user_id = $1) AS has_saved
+      FROM brews b
+      JOIN users u ON b.user_id = u.id
+      WHERE b.is_public = true
+      ORDER BY b.created_at DESC
+    `, [req.user.id]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching social feed:", err.message);
+    res.status(500).json({ error: "Failed to load the community timeline." });
+  }
+});
+
 app.listen(PORT, () => {
   console.log(`🚀 Golden Cup Backend API spinning hot on port ${PORT}`);
 });

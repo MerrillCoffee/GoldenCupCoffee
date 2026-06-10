@@ -5,6 +5,7 @@ import Brew from "./Brew/Brew";
 import Logs from "./Logs/Logs";
 import Register from "./account/Register";
 import Login from "./account/Login";
+import Social from './Social/Social';
 // Import other components as needed
 
 export default function App() {
@@ -26,7 +27,7 @@ export default function App() {
                     <Route path="/brew" element={<Brew />} />
                     <Route path="/logs" element={<Logs />}/>
                     <Route path="/learning" element={<div>Learning Page Content</div>} />
-                    <Route path="/social" element={<div>Social Page Content</div>} />
+                    <Route path="/social" element={<Social />} />
                     <Route path="/account" element={<Login />} />
                     <Route path="/account/register" element={<Register />} />
                     <Route path="/" element={<div>Welcome to Golden Cup! Click a tab to start.</div>} />
