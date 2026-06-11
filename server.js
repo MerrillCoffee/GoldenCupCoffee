@@ -138,7 +138,7 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
 
 // Create a new log (With Roastery)
 app.post('/api/brews', authenticateToken, async (req, res) => {
-  const { roastery, region, coffee_amount, roast_type, brew_method } = req.body;
+  const { roastery, region, coffee_amount, roast_type, brew_method, blurb, is_public } = req.body;
 
   if (!region || !coffee_amount || !roast_type || !brew_method) {
     return res.status(400).json({ error: "Missing required fields to complete log." });
@@ -146,8 +146,8 @@ app.post('/api/brews', authenticateToken, async (req, res) => {
 
   try {
     const result = await pool.query(
-      'INSERT INTO brews (user_id, roastery, region, coffee_amount, roast_type, brew_method) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
-      [req.user.id, roastery, region, coffee_amount, roast_type, brew_method]
+      'INSERT INTO brews (user_id, roastery, region, coffee_amount, roast_type, brew_method, blurb, is_public) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
+      [req.user.id, roastery || 'Unknown Roastery', region, coffee_amount, roast_type, brew_method, blurb || null, is_public || false]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
