@@ -10,9 +10,9 @@ export default function Logs() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
 
-  // --- Inline edit states ---
   const [editingId, setEditingId] = useState(null);
   const [editRegion, setEditRegion] = useState("");
+  const [editRoastery, setEditRoastery] = useState(""); // NEW
   const [editRoastType, setEditRoastType] = useState("Medium");
 
   const fetchLogs = async () => {
@@ -54,28 +54,38 @@ export default function Logs() {
     return `${fluidOunces} oz cup (${grams}g dry)`;
   };
 
-  // --- Log deletion ---
-  const handleDelete = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this brew log?")) return;
+  const handleDelete = async (brew) => {
+    const isSaved = brew.is_saved_recipe;
+    const actionText = isSaved ? "unsave this recipe from your logs" : "permanently delete this brew log";
+    
+    if (!window.confirm(`Are you sure you want to ${actionText}?`)) return;
+    
     const token = localStorage.getItem("token");
 
     try {
-      const response = await fetch(`/api/brews/${id}`, {
-        method: "DELETE",
-        headers: { "Authorization": `Bearer ${token}` }
-      });
+      let response;
+      if (isSaved) {
+        response = await fetch(`/api/social/brews/${brew.id}/save`, {
+          method: "POST",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      } else {
+        response = await fetch(`/api/brews/${brew.id}`, {
+          method: "DELETE",
+          headers: { "Authorization": `Bearer ${token}` }
+        });
+      }
 
       if (response.ok) {
-        setHistory(history.filter(brew => brew.id !== id));
+        setHistory(history.filter(b => b.id !== brew.id));
       } else {
-        alert("Failed to delete the log.");
+        alert(`Failed to ${isSaved ? "unsave" : "delete"} the log.`);
       }
     } catch (err) {
-      console.error("Error deleting brew:", err);
+      console.error(`Error ${isSaved ? "unsaving" : "deleting"} brew:`, err);
     }
   };
 
-  // --- Copy logs ---
   const handleCopy = async (brew) => {
     const token = localStorage.getItem("token");
     try {
@@ -86,6 +96,7 @@ export default function Logs() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
+          roastery: brew.roastery,
           region: `${brew.region} (Copy)`,
           coffee_amount: brew.coffee_amount,
           roast_type: brew.roast_type,
@@ -103,14 +114,13 @@ export default function Logs() {
     }
   };
 
-  // --- Start inline edit ---
   const startEdit = (brew) => {
     setEditingId(brew.id);
     setEditRegion(brew.region);
+    setEditRoastery(brew.roastery || "");
     setEditRoastType(brew.roast_type);
   };
 
-  // --- Submit edited log ---
   const handleUpdate = async (id) => {
     const token = localStorage.getItem("token");
     try {
@@ -121,6 +131,7 @@ export default function Logs() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
+          roastery: editRoastery,
           region: editRegion,
           roast_type: editRoastType
         })
@@ -154,26 +165,36 @@ export default function Logs() {
             <div 
               key={brew.id} 
               className="log-card" 
-              style={{
-                background: "#161b22", 
-                border: "1px solid #30363d", 
-                borderRadius: "6px", 
-                padding: "15px",
-                display: "flex",
-                justifyContent: "space-between",
-                alignItems: "center",
-                flexWrap: "wrap",
-                gap: "10px"
-              }}
+              style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: "6px", padding: "15px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}
             >
-              {/* CONDITIONAL RENDER: Active Editing Layout vs Normal Static Card */}
+              
+              <div style={{ width: '100%' }}>
+                {brew.is_saved_recipe ? (
+                  <div className="log-origin-badge" style={{ color: '#8b949e', fontSize: '0.85rem', marginBottom: '8px' }}>
+                    🔄 Saved from <span style={{ color: '#58a6ff', fontWeight: 'bold' }}>@{brew.author}</span>
+                  </div>
+                ) : (
+                  <div className="log-origin-badge" style={{ color: '#8b949e', fontSize: '0.85rem', marginBottom: '8px' }}>
+                    📝 Your Original Brew
+                  </div>
+                )}
+              </div>
+
               {editingId === brew.id ? (
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                   <input 
                     type="text"
+                    placeholder="Roastery"
+                    value={editRoastery}
+                    onChange={(e) => setEditRoastery(e.target.value)}
+                    style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "120px" }}
+                  />
+                  <input 
+                    type="text"
+                    placeholder="Region"
                     value={editRegion}
                     onChange={(e) => setEditRegion(e.target.value)}
-                    style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}
+                    style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "120px" }}
                   />
                   <select 
                     value={editRoastType} 
@@ -190,7 +211,7 @@ export default function Logs() {
               ) : (
                 <div>
                   <h3 style={{ margin: "0 0 5px 0", color: "#58a6ff" }}>
-                    {brew.region} — <span style={{ color: "#8b949e", fontSize: "0.9em", fontWeight: "normal" }}>{brew.brew_method}</span>
+                    {brew.roastery && `${brew.roastery} `}{brew.region} — <span style={{ color: "#8b949e", fontSize: "0.9em", fontWeight: "normal" }}>{brew.brew_method}</span>
                   </h3>
                   <p style={{ margin: "0", color: "#c9d1d9", fontSize: "0.95em" }}>
                     Liquid Output: <strong style={{ color: "#2ea043" }}>{getLiquidOutput(brew.coffee_amount, brew.brew_method)}</strong> | Roast: <span style={{ color: "#79c0ff" }}>{brew.roast_type}</span>
@@ -198,13 +219,16 @@ export default function Logs() {
                 </div>
               )}
 
-              {/* Toolbar controls */}
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 {editingId !== brew.id && (
                   <div style={{ display: "flex", gap: "6px" }}>
-                    <button onClick={() => startEdit(brew)} style={{ background: "#21262d", color: "#58a6ff", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>✏️ Edit</button>
+                    {!brew.is_saved_recipe && (
+                      <button onClick={() => startEdit(brew)} style={{ background: "#21262d", color: "#58a6ff", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>✏️ Edit</button>
+                    )}
                     <button onClick={() => handleCopy(brew)} style={{ background: "#21262d", color: "#79c0ff", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>📋 Copy</button>
-                    <button onClick={() => handleDelete(brew.id)} style={{ background: "#21262d", color: "#f85149", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>🗑️ Delete</button>
+                    <button onClick={() => handleDelete(brew)} style={{ background: "#21262d", color: brew.is_saved_recipe ? "#d2a8ff" : "#f85149", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>
+                      {brew.is_saved_recipe ? "🔖 Unsave" : "🗑️ Delete"}
+                    </button>
                   </div>
                 )}
                 <div style={{ fontSize: "0.85em", color: "#8b949e" }}>

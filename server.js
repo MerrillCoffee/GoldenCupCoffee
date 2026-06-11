@@ -17,12 +17,13 @@ app.use(cors());
 app.use(express.json());
 
 // --- PSQL pool ---
+// Using env variables with fallbacks to your local configuration
 const pool = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
+  user: process.env.DB_USER || 'maxyf',
+  password: process.env.DB_PASSWORD || '1237Kittles@',
+  host: process.env.DB_HOST || 'localhost',
+  port: process.env.DB_PORT || 5432,
+  database: process.env.DB_NAME || 'golden_cup',
 });
 
 // --- JWT Middleware ---
@@ -43,7 +44,9 @@ const authenticateToken = (req, res, next) => {
   });
 };
 
-// User Reg
+//Auth Routes
+
+// Register
 app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
 
@@ -99,23 +102,43 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// 1. Auths
+// Brew Log Routes
+
+// Get History Logs (With Saved Recipes & Roastery integrated)
 app.get('/api/brews', authenticateToken, async (req, res) => {
   try {
-    const result = await pool.query(
-      'SELECT * FROM brews WHERE user_id = $1 ORDER BY created_at DESC',
-      [req.user.id]
-    );
+    const result = await pool.query(`
+      SELECT 
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at,
+        u.username AS author,
+        false AS is_saved_recipe
+      FROM brews b
+      JOIN users u ON b.user_id = u.id
+      WHERE b.user_id = $1
+      
+      UNION ALL
+      
+      SELECT 
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at,
+        u.username AS author,
+        true AS is_saved_recipe
+      FROM brews b
+      JOIN saved_recipes sr ON b.id = sr.brew_id
+      JOIN users u ON b.user_id = u.id
+      WHERE sr.user_id = $1
+      
+      ORDER BY created_at DESC
+    `, [req.user.id]);
     res.json(result.rows);
   } catch (err) {
-    console.error("Error fetching brews:", err.message);
+    console.error("Error fetching logs:", err.message);
     res.status(500).json({ error: "Database error while fetching history logs." });
   }
 });
 
-// 2. Create a new log
+// Create a new log (With Roastery)
 app.post('/api/brews', authenticateToken, async (req, res) => {
-  const { region, coffee_amount, roast_type, brew_method } = req.body;
+  const { roastery, region, coffee_amount, roast_type, brew_method } = req.body;
 
   if (!region || !coffee_amount || !roast_type || !brew_method) {
     return res.status(400).json({ error: "Missing required fields to complete log." });
@@ -123,8 +146,8 @@ app.post('/api/brews', authenticateToken, async (req, res) => {
 
   try {
     const result = await pool.query(
-      'INSERT INTO brews (user_id, region, coffee_amount, roast_type, brew_method) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [req.user.id, region, coffee_amount, roast_type, brew_method]
+      'INSERT INTO brews (user_id, roastery, region, coffee_amount, roast_type, brew_method) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [req.user.id, roastery, region, coffee_amount, roast_type, brew_method]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -133,15 +156,15 @@ app.post('/api/brews', authenticateToken, async (req, res) => {
   }
 });
 
-// 3. Update specific log
+// Update specific log (With Roastery)
 app.put('/api/brews/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { region, roast_type } = req.body;
+  const { roastery, region, roast_type } = req.body;
 
   try {
     const result = await pool.query(
-      'UPDATE brews SET region = $1, roast_type = $2 WHERE id = $3 AND user_id = $4 RETURNING *',
-      [region, roast_type, id, req.user.id]
+      'UPDATE brews SET roastery = $1, region = $2, roast_type = $3 WHERE id = $4 AND user_id = $5 RETURNING *',
+      [roastery, region, roast_type, id, req.user.id]
     );
 
     if (result.rowCount === 0) {
@@ -155,7 +178,7 @@ app.put('/api/brews/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// 4. Delete specific logs
+// Delete specific logs
 app.delete('/api/brews/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
 
@@ -176,13 +199,14 @@ app.delete('/api/brews/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Social Routes
+//Social Feed Interactions
 
+// Get Main Feed (With Roastery)
 app.get('/api/social/feed', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        b.id, b.region, b.coffee_amount, b.roast_type, b.brew_method, 
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, 
         b.blurb, b.created_at,
         u.username AS author,
         (SELECT COUNT(*) FROM likes WHERE brew_id = b.id) AS like_count,
@@ -199,6 +223,127 @@ app.get('/api/social/feed', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Error fetching social feed:", err.message);
     res.status(500).json({ error: "Failed to load the community timeline." });
+  }
+});
+
+// Toggle Like
+app.post('/api/social/brews/:id/like', authenticateToken, async (req, res) => {
+  const brewId = req.params.id;
+  const userId = req.user.id;
+  try {
+    const check = await pool.query('SELECT * FROM likes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
+    
+    if (check.rows.length > 0) {
+      await pool.query('DELETE FROM likes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
+    } else {
+      await pool.query('INSERT INTO likes (user_id, brew_id) VALUES ($1, $2)', [userId, brewId]);
+    }
+
+    const countResult = await pool.query('SELECT COUNT(*) FROM likes WHERE brew_id = $1', [brewId]);
+    res.json({ hasLiked: check.rows.length === 0, like_count: countResult.rows[0].count });
+  } catch (err) {
+    console.error("Error toggling like:", err.message);
+    res.status(500).json({ error: "Server error toggling like" });
+  }
+});
+
+// Toggle Save
+app.post('/api/social/brews/:id/save', authenticateToken, async (req, res) => {
+  const brewId = req.params.id;
+  const userId = req.user.id;
+  try {
+    const check = await pool.query('SELECT * FROM saved_recipes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
+    
+    if (check.rows.length > 0) {
+      await pool.query('DELETE FROM saved_recipes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
+    } else {
+      await pool.query('INSERT INTO saved_recipes (user_id, brew_id) VALUES ($1, $2)', [userId, brewId]);
+    }
+    res.json({ hasSaved: check.rows.length === 0 });
+  } catch (err) {
+    console.error("Error toggling save:", err.message);
+    res.status(500).json({ error: "Server error toggling save" });
+  }
+});
+
+// Get Comments for a Brew
+app.get('/api/social/brews/:id/comments', authenticateToken, async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        c.id, c.comment_text, c.created_at, u.username,
+        (SELECT COUNT(*) FROM comment_likes WHERE comment_id = c.id) AS like_count,
+        EXISTS(SELECT 1 FROM comment_likes WHERE comment_id = c.id AND user_id = $2) AS has_liked
+      FROM comments c 
+      JOIN users u ON c.user_id = u.id 
+      WHERE c.brew_id = $1 
+      ORDER BY c.created_at ASC
+    `, [req.params.id, req.user.id]);
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching comments:", err.message);
+    res.status(500).json({ error: "Failed to fetch comments" });
+  }
+});
+
+// Post a new Comment
+app.post('/api/social/brews/:id/comments', authenticateToken, async (req, res) => {
+  const { comment_text } = req.body;
+  const brewId = req.params.id;
+  const userId = req.user.id;
+
+  try {
+    const result = await pool.query(
+      'INSERT INTO comments (user_id, brew_id, comment_text) VALUES ($1, $2, $3) RETURNING *',
+      [userId, brewId, comment_text]
+    );
+    res.status(201).json(result.rows[0]);
+  } catch (err) {
+    console.error("Error posting comment:", err.message);
+    res.status(500).json({ error: "Failed to post comment" });
+  }
+});
+
+// Toggle Comment Like
+app.post('/api/social/comments/:id/like', authenticateToken, async (req, res) => {
+  const commentId = req.params.id;
+  const userId = req.user.id;
+  try {
+    const check = await pool.query('SELECT * FROM comment_likes WHERE user_id = $1 AND comment_id = $2', [userId, commentId]);
+    
+    if (check.rows.length > 0) {
+      await pool.query('DELETE FROM comment_likes WHERE user_id = $1 AND comment_id = $2', [userId, commentId]);
+    } else {
+      await pool.query('INSERT INTO comment_likes (user_id, comment_id) VALUES ($1, $2)', [userId, commentId]);
+    }
+
+    const countResult = await pool.query('SELECT COUNT(*) FROM comment_likes WHERE comment_id = $1', [commentId]);
+    res.json({ hasLiked: check.rows.length === 0, like_count: countResult.rows[0].count });
+  } catch (err) {
+    console.error("Error toggling comment like:", err.message);
+    res.status(500).json({ error: "Server error toggling comment like" });
+  }
+});
+
+// Delete a Comment
+app.delete('/api/social/comments/:id', authenticateToken, async (req, res) => {
+  const commentId = req.params.id;
+  const userId = req.user.id;
+  
+  try {
+    const result = await pool.query(
+      'DELETE FROM comments WHERE id = $1 AND user_id = $2 RETURNING *',
+      [commentId, userId]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(403).json({ error: "Unauthorized or comment not found." });
+    }
+
+    res.json({ message: "Comment deleted successfully", deletedId: commentId });
+  } catch (err) {
+    console.error("Error deleting comment:", err.message);
+    res.status(500).json({ error: "Failed to delete comment" });
   }
 });
 

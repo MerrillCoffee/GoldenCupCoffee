@@ -1,0 +1,100 @@
+/* Core Layout & Backgrounds */
+.social-container {
+  background-color: #0d1117; 
+  color: #c9d1d9; 
+  min-height: 100vh;
+  padding: 2rem;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
+}
+
+.timeline-header {
+  margin-bottom: 2rem;
+  border-bottom: 1px solid #30363d;
+  padding-bottom: 10px;
+}
+
+.timeline-message {
+  text-align: center;
+  margin-top: 50px;
+  color: #8b949e;
+}
+
+/* Card Design */
+.brew-card {
+  background-color: #161b22;
+  border: 1px solid #30363d;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+  max-width: 600px;
+}
+
+.brew-card-header {
+  display: flex;
+  justify-content: space-between;
+  margin-bottom: 12px;
+}
+
+.author {
+  color: #58a6ff;
+  font-weight: 600;
+}
+
+.timestamp {
+  color: #8b949e;
+  font-size: 0.85rem;
+}
+
+.blurb {
+  margin-bottom: 16px;
+  line-height: 1.5;
+}
+
+/* Method Badges */
+.brew-stats {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 16px;
+}
+
+.stat-badge {
+  background-color: #21262d;
+  border: 1px solid #30363d;
+  border-radius: 2em;
+  padding: 4px 12px;
+  font-size: 0.8rem;
+  color: #8b949e;
+}
+
+/* Interaction Buttons */
+.brew-card-actions {
+  display: flex;
+  gap: 16px;
+  border-top: 1px solid #30363d;
+  padding-top: 12px;
+}
+
+.action-btn {
+  background: none;
+  border: none;
+  color: #8b949e;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 0.9rem;
+  transition: color 0.2s ease;
+}
+
+.action-btn:hover {
+  color: #c9d1d9;
+}
+
+.active-like {
+  color: #f85149;
+}
+
+.active-save {
+  color: #3fb950;
+}

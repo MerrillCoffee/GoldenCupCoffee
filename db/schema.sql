@@ -22,6 +22,7 @@ CREATE TABLE users (
 CREATE TABLE brews (
     id SERIAL PRIMARY KEY,
     user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+    roastery VARCHAR(100) DEFAULT 'Unknown Roastery', -- NEW COLUMN
     region VARCHAR(100) NOT NULL,
     coffee_amount VARCHAR(20) NOT NULL,
     roast_type roast_level NOT NULL,
@@ -61,12 +62,12 @@ CREATE TABLE saved_recipes (
   UNIQUE(user_id, brew_id)
 );
 
--- Seed Data
+-- Seed Data (Updated with Roasteries)
 INSERT INTO users (username, password) 
 VALUES ('coffee_lover_99', 'supersecretpassword');
 
-INSERT INTO brews (user_id, region, coffee_amount, roast_type, brew_method, blurb, is_public)
+INSERT INTO brews (user_id, roastery, region, coffee_amount, roast_type, brew_method, blurb, is_public)
 VALUES 
-(1, 'Colombia', '16 oz', 'Medium', 'Pour Over', 'Trying out a slightly coarser grind today. The acidity is popping!', true),
-(1, 'Ethiopia Yirgacheffe', '12 oz', 'Light', 'Aeropress', 'Standard James Hoffmann method. Tastes like blueberries.', true),
-(1, 'Sumatra Mandheling', '8 oz', 'Dark', 'French Press', 'A classic heavy hitter for a rainy morning.', true);
+(1, 'Onyx Coffee Lab', 'Colombia', '16 oz', 'Medium', 'Pour Over', 'Trying out a slightly coarser grind today. The acidity is popping!', true),
+(1, 'Verve Coffee', 'Ethiopia Yirgacheffe', '12 oz', 'Light', 'Aeropress', 'Standard James Hoffmann method. Tastes like blueberries.', true),
+(1, 'Local Cafe', 'Sumatra Mandheling', '8 oz', 'Dark', 'French Press', 'A classic heavy hitter for a rainy morning.', true);

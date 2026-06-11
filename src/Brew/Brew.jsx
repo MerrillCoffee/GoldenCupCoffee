@@ -17,6 +17,7 @@ const COMMON_ORIGINS = [
 ];
 
 export default function Brew() {
+  const [roastery, setRoastery] = useState(""); // NEW
   const [selectedRegion, setSelectedRegion] = useState("Colombia"); 
   const [customRegion, setCustomRegion] = useState(""); 
   const [targetVolume, setTargetVolume] = useState(12); 
@@ -25,14 +26,12 @@ export default function Brew() {
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
-  // --- Timer States ---
   const [time, setTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const timerRef = useRef(null);
 
   const currentRecipe = HOFFMANN_RECIPES[brewMethod];
 
-  // --- Timer Logic ---
   useEffect(() => {
     if (isActive) {
       timerRef.current = setInterval(() => {
@@ -41,8 +40,6 @@ export default function Brew() {
     } else if (!isActive && timerRef.current) {
       clearInterval(timerRef.current);
     }
-    
-    // Clean up the interval when the component unmounts
     return () => clearInterval(timerRef.current);
   }, [isActive]);
 
@@ -52,14 +49,12 @@ export default function Brew() {
     setTime(0);
   };
 
-  // Helper to turn numbers into clean 00:00 strings
   const formatTime = (totalSeconds) => {
     const minutes = Math.floor(totalSeconds / 60);
     const seconds = totalSeconds % 60;
     return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // --- Calculation Engine ---
   const calculateMeasurements = () => {
     const numericVolume = parseFloat(targetVolume);
     if (isNaN(numericVolume) || numericVolume <= 0) return null;
@@ -108,6 +103,7 @@ export default function Brew() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
+          roastery: roastery || "Unknown Roastery",
           region: finalRegion,
           coffee_amount: formattedCoffeeAmount, 
           roast_type: roastType,
@@ -120,6 +116,7 @@ export default function Brew() {
       if (response.ok) {
         setStatusMessage(`Successfully logged your ${data.brew_method} from ${data.region}! ☕`);
         setCustomRegion("");
+        setRoastery("");
       } else {
         setIsError(true);
         setStatusMessage(data.error || "Failed to save brew log.");
@@ -135,7 +132,17 @@ export default function Brew() {
     <div className="brew-page" style={{ padding: "20px" }}>
       <form onSubmit={handleSubmit} className="brew-form">
         <div style={{ display: "flex", gap: "20px", marginBottom: "25px", alignItems: "center", flexWrap: "wrap" }}>
-          
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label>Roastery: </label>
+            <input 
+              type="text" 
+              placeholder="e.g. Onyx, Verve" 
+              value={roastery}
+              onChange={(e) => setRoastery(e.target.value)}
+              style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "130px" }}
+            />
+          </div>
+
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <label>Region: </label>
             <select 
@@ -205,10 +212,7 @@ export default function Brew() {
         </p>
       )}
 
-      {/* Calculator left Timer Right */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", marginBottom: "25px" }}>
-        
-        {/* calc component */}
         {measurements && (
           <div style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "15px", borderRadius: "6px" }}>
             <h4 style={{ margin: "0 0 10px 0", color: "#2ea043" }}>📐 Custom Scaling Calculator Output</h4>
@@ -225,7 +229,6 @@ export default function Brew() {
           </div>
         )}
 
-        {/* Stopwatch Timer */}
         <div style={{ background: "#0d1117", border: "1px solid #30363d", padding: "15px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <h4 style={{ margin: "0 0 5px 0", color: "#8b949e" }}>⏱️ Extraction Stopwatch</h4>
           <div style={{ fontSize: "3.2em", fontWeight: "bold", fontFamily: "monospace", color: isActive ? "#58a6ff" : "#c9d1d9", margin: "10px 0" }}>
@@ -234,30 +237,13 @@ export default function Brew() {
           <div style={{ display: "flex", gap: "10px" }}>
             <button 
               onClick={toggleTimer}
-              style={{
-                background: isActive ? "#da3637" : "#2ea043", // Alternates red/green depending on tracking status
-                color: "#ffffff",
-                border: "none",
-                padding: "8px 16px",
-                borderRadius: "6px",
-                fontWeight: "bold",
-                cursor: "pointer",
-                width: "80px"
-              }}
+              style={{ background: isActive ? "#da3637" : "#2ea043", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", width: "80px" }}
             >
               {isActive ? "Stop" : "Start"}
             </button>
             <button 
               onClick={resetTimer}
-              style={{
-                background: "#21262d",
-                color: "#c9d1d9",
-                border: "1px solid #30363d",
-                padding: "8px 16px",
-                borderRadius: "6px",
-                fontWeight: "bold",
-                cursor: "pointer"
-              }}
+              style={{ background: "#21262d", color: "#c9d1d9", border: "1px solid #30363d", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
             >
               Reset
             </button>
@@ -265,7 +251,6 @@ export default function Brew() {
         </div>
       </div>
       
-      {/* method instructions */}
       <div style={{ background: "#161b22", border: "1px solid #30363d", padding: "20px", borderRadius: "6px" }}>
         <h3 style={{ margin: "0 0 15px 0", color: "#58a6ff" }}>
           Official Hoffmann Technique: <span style={{ color: "#c9d1d9" }}>{brewMethod}</span>
