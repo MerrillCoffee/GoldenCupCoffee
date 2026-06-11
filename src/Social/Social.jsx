@@ -241,7 +241,15 @@ const Social = () => {
               value={postForm.blurb}
               onChange={(e) => setPostForm({...postForm, blurb: e.target.value})}
               required
-              style={{ background: '#0d1117', border: '1px solid #30363d', padding: '10px', color: '#c9d1d9', borderRadius: '6px', minHeight: '60px', width: '100%', resize: 'vertical' }}
+              style={{
+              boxSizing: 'border-box',
+              background: '#0d1117',
+              border: '1px solid #30363d',
+              padding: '10px', color: '#c9d1d9',
+              borderRadius: '6px',
+              minHeight: '60px',
+              width: '100%',
+              resize: 'vertical' }}
             />
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>

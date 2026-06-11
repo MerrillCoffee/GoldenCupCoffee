@@ -109,7 +109,7 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at,
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at, b.is_public,
         u.username AS author,
         false AS is_saved_recipe
       FROM brews b
@@ -119,7 +119,7 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
       UNION ALL
       
       SELECT 
-        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at,
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at, b.is_public,
         u.username AS author,
         true AS is_saved_recipe
       FROM brews b
@@ -196,6 +196,28 @@ app.delete('/api/brews/:id', authenticateToken, async (req, res) => {
   } catch (err) {
     console.error("Error deleting brew:", err.message);
     res.status(500).json({ error: "Database error while deleting log entries." });
+  }
+});
+
+// Share a private log to the social feed
+app.put('/api/brews/:id/share', authenticateToken, async (req, res) => {
+  const { id } = req.params;
+  const { blurb } = req.body;
+
+  try {
+    const result = await pool.query(
+      'UPDATE brews SET is_public = true, blurb = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
+      [blurb, id, req.user.id]
+    );
+
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: "Brew log not found or unauthorized." });
+    }
+
+    res.json(result.rows[0]);
+  } catch (err) {
+    console.error("Error sharing brew:", err.message);
+    res.status(500).json({ error: "Database error while sharing log." });
   }
 });
 

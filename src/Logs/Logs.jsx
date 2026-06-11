@@ -12,8 +12,10 @@ export default function Logs() {
 
   const [editingId, setEditingId] = useState(null);
   const [editRegion, setEditRegion] = useState("");
-  const [editRoastery, setEditRoastery] = useState(""); // NEW
+  const [editRoastery, setEditRoastery] = useState("");
   const [editRoastType, setEditRoastType] = useState("Medium");
+  const [sharingId, setSharingId] = useState(null);
+  const [shareBlurb, setShareBlurb] = useState("");
 
   const fetchLogs = async () => {
     const token = localStorage.getItem("token");
@@ -114,11 +116,50 @@ export default function Logs() {
     }
   };
 
+  // Start the sharing process
+  const startShare = (brew) => {
+    setSharingId(brew.id);
+    setShareBlurb("");
+    setEditingId(null);
+  };
+
+  // Submit the share
+  const handleShare = async (brewId) => {
+    if (!shareBlurb.trim()) {
+      alert("Please add a short blurb before sharing!");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(`/api/brews/${brewId}/share`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+        body: JSON.stringify({ blurb: shareBlurb })
+      });
+
+      if (response.ok) {
+        setSharingId(null);
+        setShareBlurb("");
+        alert("Successfully shared to the community feed!");
+        fetchLogs(); 
+      } else {
+        alert("Failed to share brew.");
+      }
+    } catch (err) {
+      console.error("Error sharing brew:", err);
+    }
+  };
+
   const startEdit = (brew) => {
     setEditingId(brew.id);
     setEditRegion(brew.region);
     setEditRoastery(brew.roastery || "");
     setEditRoastType(brew.roast_type);
+    setSharingId(null);
   };
 
   const handleUpdate = async (id) => {
@@ -180,6 +221,7 @@ export default function Logs() {
                 )}
               </div>
 
+              {/* Edit Mode View */}
               {editingId === brew.id ? (
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                   <input 
@@ -209,7 +251,8 @@ export default function Logs() {
                   <button onClick={() => setEditingId(null)} style={{ padding: "6px 12px", background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9", borderRadius: "4px", cursor: "pointer" }}>Cancel</button>
                 </div>
               ) : (
-                <div>
+                /* Normal View */
+                <div style={{ width: sharingId === brew.id ? '100%' : 'auto' }}>
                   <h3 style={{ margin: "0 0 5px 0", color: "#58a6ff" }}>
                     {brew.roastery && `${brew.roastery} `}{brew.region} — <span style={{ color: "#8b949e", fontSize: "0.9em", fontWeight: "normal" }}>{brew.brew_method}</span>
                   </h3>
@@ -219,21 +262,52 @@ export default function Logs() {
                 </div>
               )}
 
-              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-                {editingId !== brew.id && (
-                  <div style={{ display: "flex", gap: "6px" }}>
+              {/* Inline Share Form */}
+              {sharingId === brew.id && (
+                <div style={{ width: "100%", marginTop: "10px", borderTop: "1px solid #30363d", paddingTop: "12px" }}>
+                  <label style={{ display: "block", color: "#3fb950", fontWeight: "bold", marginBottom: "8px", fontSize: "0.9em" }}>🌍 Share to Community</label>
+                  <textarea
+                    placeholder="Add a short blurb about this brew..."
+                    value={shareBlurb}
+                    onChange={(e) => setShareBlurb(e.target.value)}
+                    style={{ boxSizing: "border-box", width: "100%", background: "#0d1117", color: "#c9d1d9", border: "1px solid #30363d", padding: "10px", borderRadius: "4px", minHeight: "60px", resize: "vertical", marginBottom: "8px" }}
+                  />
+                  <div style={{ display: "flex", gap: "8px" }}>
+                    <button onClick={() => handleShare(brew.id)} style={{ padding: "6px 12px", background: "#238636", border: "none", color: "#fff", borderRadius: "4px", cursor: "pointer", fontWeight: "bold", fontSize: "0.85em" }}>Post to Feed</button>
+                    <button onClick={() => setSharingId(null)} style={{ padding: "6px 12px", background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>Cancel</button>
+                  </div>
+                </div>
+              )}
+
+              {/* Action Buttons */}
+              <div style={{ display: "flex", alignItems: "center", gap: "12px", width: sharingId === brew.id ? '100%' : 'auto' }}>
+                {editingId !== brew.id && sharingId !== brew.id && (
+                  <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
+                    
                     {!brew.is_saved_recipe && (
                       <button onClick={() => startEdit(brew)} style={{ background: "#21262d", color: "#58a6ff", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>✏️ Edit</button>
                     )}
+
+                    {!brew.is_saved_recipe && !brew.is_public && (
+                      <button onClick={() => startShare(brew)} style={{ background: "#21262d", color: "#3fb950", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>🌍 Share</button>
+                    )}
+
+                    {brew.is_public && (
+                      <span style={{ fontSize: "0.85em", color: "#8b949e", alignSelf: "center", padding: "0 4px" }}>🌍 Shared</span>
+                    )}
+                    
                     <button onClick={() => handleCopy(brew)} style={{ background: "#21262d", color: "#79c0ff", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>📋 Copy</button>
+                    
                     <button onClick={() => handleDelete(brew)} style={{ background: "#21262d", color: brew.is_saved_recipe ? "#d2a8ff" : "#f85149", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>
                       {brew.is_saved_recipe ? "🔖 Unsave" : "🗑️ Delete"}
                     </button>
                   </div>
                 )}
-                <div style={{ fontSize: "0.85em", color: "#8b949e" }}>
-                  {new Date(brew.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-                </div>
+                {sharingId !== brew.id && (
+                  <div style={{ fontSize: "0.85em", color: "#8b949e", marginLeft: "auto" }}>
+                    {new Date(brew.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
+                  </div>
+                )}
               </div>
 
             </div>
