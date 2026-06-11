@@ -2,39 +2,3 @@ The basic idea is simple; instructions on how to get the users coffee from bean 
 
 List of tools used:
     (add gen AI??) JS, NODE, SQL, Express, AI for boilerplate and basic CSS, React, and probably more that ill learn later!
-
-List of features:
-
-news letter?
-
-    A: Brew
-
-        A section dedicated to every method one can think of to brewing coffee, everything from auto-drip coffee to esspresso, and even some weird oddball choices like Aeropress and syphon filters. Once a user selects their desired brewing method, they'll be prompted to enter what roast they are using, its region of origin (if known), and desired liquid output (ie, 16 ounces of drinkable coffee). From there, the website will start a "brewing game" where it will walk the user step by step through the process of brewing their coffee, effectively tutorializing them with a nifty interactive interface. Things that will be included will be videos showing proper technique, a timer for bloom, brewing, and cooling for the cup of coffee. Holding the user's hand through a full brew for a perfect introduction to homemade, gormet coffee experience! 
-
-        Once a brew has been completed, the user can log their experience, tasting notes, a rating scale, and the ability to favorite the particular "brew" to log for future use!
-    
-    B: Logs
-
-        Another key component of the website will be logging every "brew" the user has made for future reference. Bein able to look back on what exactly you drank is a feature that not many web apps for personal coffee use include. An additional feature of the "logs" is that you can tweak a given recipe to experiment and try new dosages of coffee, water, grind size, and even temperature. While using the app to get started is really nice for most people, coffee nerds will tweak dosages and twist nobs until they get the //PERFECT// brew. Once the data is gathered for the new recipe, it will be logged and the user will be prompted once again to give notes, rating, and the ability to favorite the new method!
-
-    C: Learning
-
-        This section is basic, it contains information, articales, videos, blogs, you name it. All of it can be found. Want to learn about what coffee brewer fits you? You can find that information here! Differences between a pour over and espresso? Also here! Completely whacky off the wall things totally outside of the scope of the website like roasting your own coffee by deep frying the beans? Why not! This is most reasonably compared to a blog site here.
-
-    D: Acheivements
-    
-        One of the stated goals of the website is to make brewing coffee more fun, and I think adding acheivements is a great way to go to help get this going. Stuff like trying out tons of different roasts, lets say 15, you will give you a cool little badge that says "eclectic coffee connoisseur" on your account! Another achievement/badge I would impliment would be "Consistentcy king/queen/nonbinary ruler", where the past 5 brews you have are all at least 8/10 on the rating scale. How this can be scaled out is only a matter of ones imagination. 
-
-        (how to check) look for how much social interaction? Socially vetted badges. Daily log ins?
-
-    E: Social aspects
-
-        One of the things about acheivements is that they only really exist for 2 reasons, the personal satisfaction of ticking off a box, or to show off how much better you are than another person! With this in mind, we could cater to that impulse by adding a social feature that allows other accounts to interact with eachother. See your friends daily brews, how they liked it, and reviewed them! Of course this is a completely optional feature to share ones brews, but often times hobbiests feel pretty lonely with their craft, so having a social aspect will help foster community and inspire others to step up their game! Get more achievements, perfect their brew, share it, and subsequently get told that it tastes like hotdog water and they don't know shit.
-
-    F: Closing thoughts from me
-
-        Coffee has big problems right now, from its culture to unironic existential threats. Coffee as a culture has only grown more sophisticated in its development. It isn't a harsh, mean, bitter drink, or at least it doesn't have to be anymore. There's real, fruity, chocolatey, acidic, bitter, and sweet tastes that most people never get to experience. This isn't tasting notes like wine, but truly from experience I can tell you that I have had a black cup of coffee with nothing in it that tasted like blackberries and sage.
-
-        I want others to see that side of it, as the coffe industry is slowly colapsing under the weight of climate change as we speak. Starbucks isn't just charging more for coffee because they're greedy (which they are trust me I've worked there for 6 years), but coffee is harder to grow because of climate change and IS going to be one of the first comforts we lose to it. We can help preserve this art, science, and lovely caffine delivery vehicle the more we educate people on how its being affected by its enviornment.
-
-        Thats it, thats all she wrote
