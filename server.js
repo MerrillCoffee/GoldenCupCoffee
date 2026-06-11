@@ -189,10 +189,10 @@ app.delete('/api/brews/:id', authenticateToken, async (req, res) => {
     );
 
     if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Brew log not found or unauthorized to delete." });
+      return res.status(403).json({ error: "Unauthorized: You can only delete your own posts." });
     }
 
-    res.json({ message: "Brew log successfully deleted from records!", deletedLog: result.rows[0] });
+    res.json({ message: "Brew log successfully deleted!", deletedLog: result.rows[0] });
   } catch (err) {
     console.error("Error deleting brew:", err.message);
     res.status(500).json({ error: "Database error while deleting log entries." });

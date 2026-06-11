@@ -214,6 +214,24 @@ const Social = () => {
       console.error("Comment delete error:", err.message);
     }
   };
+
+  const handleDeletePost = async (brewId) => {
+    if (!window.confirm("Are you sure you want to permanently delete this brew from the community?")) return;
+
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/brews/${brewId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete post.');
+
+      setFeed(prevFeed => prevFeed.filter(brew => brew.id !== brewId));
+    } catch (err) {
+      console.error("Post delete error:", err.message);
+    }
+  };
   
   if (loading) return <div className="timeline-message">Loading the brew feed...</div>;
   if (error) return <div className="timeline-message error">Error: {error}</div>;
@@ -339,6 +357,26 @@ const Social = () => {
               >
                 🔖 {brew.has_saved ? 'Saved' : 'Save'}
               </button>
+
+              {currentUser && currentUser.toLowerCase() === brew.author.toLowerCase() && (
+                <button
+                  onClick={() => handleDeletePost(brew.id)}
+                  style={{
+                    marginLeft: 'auto',
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#f85149',
+                    cursor: 'pointer',
+                    fontSize: '0.9rem',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '4px'
+                }}
+                titel="Delete Post"
+                >
+                  🗑️ Delete
+                </button>
+              )}
             </div>
 
             {/* Expanding comment section */}
