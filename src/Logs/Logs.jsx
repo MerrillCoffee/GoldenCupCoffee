@@ -14,10 +14,15 @@ export default function Logs() {
   const [editRegion, setEditRegion] = useState("");
   const [editRoastery, setEditRoastery] = useState("");
   const [editRoastType, setEditRoastType] = useState("Medium");
+
   const [sharingId, setSharingId] = useState(null);
   const [shareBlurb, setShareBlurb] = useState("");
 
-  const fetchLogs = async () => {
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+
+  // Updated to accept a pageNumber parameter
+  const fetchLogs = async (pageNumber = 1) => {
     const token = localStorage.getItem("token");
     if (!token) {
       setError("Please sign in under the Account tab to view your personal logs.");
@@ -26,12 +31,23 @@ export default function Logs() {
     }
 
     try {
-      const response = await fetch("/api/brews", {
+      const response = await fetch(`/api/brews?page=${pageNumber}`, {
         headers: { "Authorization": `Bearer ${token}` }
       });
       const data = await response.json();
+      
       if (response.ok) {
-        setHistory(data);
+        if (data.length < 10) {
+          setHasMore(false);
+        } else {
+          setHasMore(true);
+        }
+
+        if (pageNumber === 1) {
+          setHistory(data);
+        } else {
+          setHistory(prev => [...prev, ...data]);
+        }
       } else {
         setError(data.error || "Failed to load coffee history.");
       }
@@ -43,12 +59,15 @@ export default function Logs() {
     }
   };
 
+  // Listen for page changes and fetch
   useEffect(() => {
-    fetchLogs();
-  }, []);
+    fetchLogs(page);
+  }, [page]);
 
   const getLiquidOutput = (coffeeAmountStr, brewMethod) => {
-    const grams = parseFloat(coffeeAmountStr);
+    const str = String(coffeeAmountStr).toLowerCase();
+    if (str.includes('oz')) return str;
+    const grams = parseFloat(str);
     if (isNaN(grams)) return coffeeAmountStr;
     const ratio = METHOD_RATIOS[brewMethod] || 16.67;
     const waterMl = grams * ratio;
@@ -107,7 +126,8 @@ export default function Logs() {
       });
 
       if (response.ok) {
-        fetchLogs();
+        setPage(1);
+        fetchLogs(1);
       } else {
         alert("Failed to duplicate log.");
       }
@@ -116,14 +136,12 @@ export default function Logs() {
     }
   };
 
-  // Start the sharing process
   const startShare = (brew) => {
     setSharingId(brew.id);
     setShareBlurb("");
-    setEditingId(null);
+    setEditingId(null); 
   };
 
-  // Submit the share
   const handleShare = async (brewId) => {
     if (!shareBlurb.trim()) {
       alert("Please add a short blurb before sharing!");
@@ -145,7 +163,10 @@ export default function Logs() {
         setSharingId(null);
         setShareBlurb("");
         alert("Successfully shared to the community feed!");
-        fetchLogs(); 
+
+        setHistory(prevHistory => prevHistory.map(b => 
+          b.id === brewId ? { ...b, is_public: true } : b
+        ));
       } else {
         alert("Failed to share brew.");
       }
@@ -159,7 +180,7 @@ export default function Logs() {
     setEditRegion(brew.region);
     setEditRoastery(brew.roastery || "");
     setEditRoastType(brew.roast_type);
-    setSharingId(null);
+    setSharingId(null); 
   };
 
   const handleUpdate = async (id) => {
@@ -180,7 +201,8 @@ export default function Logs() {
 
       if (response.ok) {
         setEditingId(null);
-        fetchLogs();
+        setPage(1);
+        fetchLogs(1);
       } else {
         alert("Failed to update log.");
       }
@@ -189,7 +211,7 @@ export default function Logs() {
     }
   };
 
-  if (loading) return <p style={{ color: "#8b949e", padding: "20px" }}>Warming up the kettle...</p>;
+  if (loading && page === 1) return <p style={{ color: "#8b949e", padding: "20px" }}>Warming up the kettle...</p>;
   if (error) return <p style={{ color: "#f85149", padding: "20px" }}>{error}</p>;
 
   return (
@@ -204,7 +226,7 @@ export default function Logs() {
         <div className="logs-list" style={{ display: "flex", flexDirection: "column", gap: "12px", marginTop: "20px" }}>
           {history.map((brew) => (
             <div 
-              key={brew.id} 
+              key={`${brew.id}-${brew.is_saved_recipe}`}
               className="log-card" 
               style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: "6px", padding: "15px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}
             >
@@ -221,7 +243,6 @@ export default function Logs() {
                 )}
               </div>
 
-              {/* Edit Mode View */}
               {editingId === brew.id ? (
                 <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
                   <input 
@@ -251,7 +272,6 @@ export default function Logs() {
                   <button onClick={() => setEditingId(null)} style={{ padding: "6px 12px", background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9", borderRadius: "4px", cursor: "pointer" }}>Cancel</button>
                 </div>
               ) : (
-                /* Normal View */
                 <div style={{ width: sharingId === brew.id ? '100%' : 'auto' }}>
                   <h3 style={{ margin: "0 0 5px 0", color: "#58a6ff" }}>
                     {brew.roastery && `${brew.roastery} `}{brew.region} — <span style={{ color: "#8b949e", fontSize: "0.9em", fontWeight: "normal" }}>{brew.brew_method}</span>
@@ -262,7 +282,6 @@ export default function Logs() {
                 </div>
               )}
 
-              {/* Inline Share Form */}
               {sharingId === brew.id && (
                 <div style={{ width: "100%", marginTop: "10px", borderTop: "1px solid #30363d", paddingTop: "12px" }}>
                   <label style={{ display: "block", color: "#3fb950", fontWeight: "bold", marginBottom: "8px", fontSize: "0.9em" }}>🌍 Share to Community</label>
@@ -279,7 +298,6 @@ export default function Logs() {
                 </div>
               )}
 
-              {/* Action Buttons */}
               <div style={{ display: "flex", alignItems: "center", gap: "12px", width: sharingId === brew.id ? '100%' : 'auto' }}>
                 {editingId !== brew.id && sharingId !== brew.id && (
                   <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
@@ -314,6 +332,25 @@ export default function Logs() {
           ))}
         </div>
       )}
+
+      {/* --- Pagination Controls --- */}
+      {hasMore && history.length > 0 && (
+        <div style={{ textAlign: 'center', margin: '30px 0' }}>
+          <button 
+            onClick={() => setPage(prev => prev + 1)}
+            style={{ padding: '10px 20px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            Load Older Logs 👇
+          </button>
+        </div>
+      )}
+      
+      {!hasMore && history.length > 0 && (
+        <p style={{ textAlign: 'center', color: '#8b949e', marginTop: '30px', fontStyle: 'italic' }}>
+          That's all the brews in your history!
+        </p>
+      )}
+
     </div>
   );
 }

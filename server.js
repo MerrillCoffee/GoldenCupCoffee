@@ -104,8 +104,12 @@ app.post('/api/auth/login', async (req, res) => {
 
 // Brew Log Routes
 
-// Get History Logs (With Saved Recipes & Roastery integrated)
+// Get History Logs
 app.get('/api/brews', authenticateToken, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
   try {
     const result = await pool.query(`
       SELECT 
@@ -128,7 +132,9 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
       WHERE sr.user_id = $1
       
       ORDER BY created_at DESC
-    `, [req.user.id]);
+      LIMIT $2 OFFSET $3
+    `, [req.user.id, limit, offset]);
+    
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching logs:", err.message);
@@ -136,7 +142,7 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
   }
 });
 
-// Create a new log (With Roastery)
+// Create a new log
 app.post('/api/brews', authenticateToken, async (req, res) => {
   const { roastery, region, coffee_amount, roast_type, brew_method, blurb, is_public } = req.body;
 
@@ -156,7 +162,7 @@ app.post('/api/brews', authenticateToken, async (req, res) => {
   }
 });
 
-// Update specific log (With Roastery)
+// Update specific log
 app.put('/api/brews/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { roastery, region, roast_type } = req.body;
