@@ -1,23 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import './Social.css';
 
+const METHOD_RATIOS = {
+  "Drip Brew": 16.67, "Pour Over": 16.67, "French Press": 16.67,
+  "Espresso": 2, "Aeropress": 11, "Percolator": 15, "Cold Brew": 8
+};
+
 const Social = () => {
   const [feed, setFeed] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Comment System State
+  // Pagination State
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(true);
+  
+  // Comment & Post State
   const [activeCommentId, setActiveCommentId] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
-
-  // Post Creation State
   const [showPostForm, setShowPostForm] = useState(false);
   const [postForm, setPostForm] = useState({
     roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", blurb: ""
   });
 
-  // Extract logged in user's JWT token
   let currentUser = null;
   try {
     const token = localStorage.getItem('token');
@@ -28,17 +34,28 @@ const Social = () => {
     console.error("Could not parse token");
   }
 
-  const fetchFeed = async () => {
+  const fetchFeed = async (pageNumber = 1) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch('/api/social/feed', {
+      const response = await fetch(`/api/social/feed?page=${pageNumber}`, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (!response.ok) throw new Error('Failed to fetch the timeline.');
 
       const data = await response.json();
-      setFeed(data);
+
+      if (data.length < 10) {
+        setHasMore(false);
+      } else {
+        setHasMore(true);
+      }
+
+      if (pageNumber === 1) {
+        setFeed(data);
+      } else {
+        setFeed(prevFeed => [...prevFeed, ...data]);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -46,11 +63,22 @@ const Social = () => {
     }
   };
 
+  // Trigger fetch when the page state changes
   useEffect(() => {
-    fetchFeed();
-  }, []);
+    fetchFeed(page);
+  }, [page]);
 
-  // --- Handle New Social Post ---
+  const getLiquidOutput = (coffeeAmountStr, brewMethod) => {
+    const str = String(coffeeAmountStr).toLowerCase();
+    if (str.includes('oz')) return str;
+    const grams = parseFloat(str);
+    if (isNaN(grams)) return coffeeAmountStr; 
+    const ratio = METHOD_RATIOS[brewMethod] || 16.67;
+    const waterMl = grams * ratio;
+    const fluidOunces = Math.round(waterMl / 29.57);
+    return `${fluidOunces} oz`;
+  };
+
   const handlePostSubmit = async (e) => {
     e.preventDefault();
     const token = localStorage.getItem('token');
@@ -67,16 +95,14 @@ const Social = () => {
           'Content-Type': 'application/json',
           'Authorization': `Bearer ${token}`
         },
-        body: JSON.stringify({
-          ...postForm,
-          is_public: true
-        })
+        body: JSON.stringify({ ...postForm, is_public: true })
       });
 
       if (response.ok) {
         setPostForm({ roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", blurb: "" });
         setShowPostForm(false);
-        fetchFeed();
+        setPage(1);
+        fetchFeed(1);
       } else {
         alert("Failed to post to the community.");
       }
@@ -144,21 +170,16 @@ const Social = () => {
 
   const handlePostComment = async (brewId) => {
     if (!commentText.trim()) return;
-    
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/social/brews/${brewId}/comments`, {
         method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}` 
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ comment_text: commentText })
       });
 
       if (response.ok) {
         setCommentText("");
-
         const updatedResponse = await fetch(`/api/social/brews/${brewId}/comments`, {
           headers: { 'Authorization': `Bearer ${token}` }
         });
@@ -193,31 +214,8 @@ const Social = () => {
     }
   };
 
-  const handleDeleteComment = async (commentId, brewId) => {
-    if (!window.confirm("Are you sure you want to delete this comment?")) return;
-
-    try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(`/api/social/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
-      if (!response.ok) throw new Error('Failed to delete comment.');
-
-      setComments(prevComments => prevComments.filter(c => c.id !== commentId));
-
-      setFeed(prevFeed => prevFeed.map(brew => 
-        brew.id === brewId ? { ...brew, comment_count: Math.max(0, parseInt(brew.comment_count) - 1) } : brew
-      ));
-    } catch (err) {
-      console.error("Comment delete error:", err.message);
-    }
-  };
-
   const handleDeletePost = async (brewId) => {
     if (!window.confirm("Are you sure you want to permanently delete this brew from the community?")) return;
-
     try {
       const token = localStorage.getItem('token');
       const response = await fetch(`/api/brews/${brewId}`, {
@@ -226,20 +224,37 @@ const Social = () => {
       });
 
       if (!response.ok) throw new Error('Failed to delete post.');
-
       setFeed(prevFeed => prevFeed.filter(brew => brew.id !== brewId));
     } catch (err) {
       console.error("Post delete error:", err.message);
     }
   };
+
+  const handleDeleteComment = async (commentId, brewId) => {
+    if (!window.confirm("Are you sure you want to delete this comment?")) return;
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/social/comments/${commentId}`, {
+        method: 'DELETE',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+
+      if (!response.ok) throw new Error('Failed to delete comment.');
+      setComments(prevComments => prevComments.filter(c => c.id !== commentId));
+      setFeed(prevFeed => prevFeed.map(brew => 
+        brew.id === brewId ? { ...brew, comment_count: Math.max(0, parseInt(brew.comment_count) - 1) } : brew
+      ));
+    } catch (err) {
+      console.error("Comment delete error:", err.message);
+    }
+  };
   
-  if (loading) return <div className="timeline-message">Loading the brew feed...</div>;
+  if (loading && page === 1) return <div className="timeline-message">Loading the brew feed...</div>;
   if (error) return <div className="timeline-message error">Error: {error}</div>;
 
   return (
     <div className="social-container">
       
-      {/* Header and Toggle Button */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '10px' }}>
         <h2 className="timeline-header" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>Community Brews</h2>
         <button 
@@ -250,7 +265,6 @@ const Social = () => {
         </button>
       </div>
 
-      {/* Post Creation Form */}
       {showPostForm && (
         <div className="brew-card" style={{ border: '1px solid #2ea043', marginBottom: '2rem' }}>
           <form onSubmit={handlePostSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
@@ -259,15 +273,7 @@ const Social = () => {
               value={postForm.blurb}
               onChange={(e) => setPostForm({...postForm, blurb: e.target.value})}
               required
-              style={{
-              boxSizing: 'border-box',
-              background: '#0d1117',
-              border: '1px solid #30363d',
-              padding: '10px', color: '#c9d1d9',
-              borderRadius: '6px',
-              minHeight: '60px',
-              width: '100%',
-              resize: 'vertical' }}
+              style={{ boxSizing: 'border-box', background: '#0d1117', border: '1px solid #30363d', padding: '10px', color: '#c9d1d9', borderRadius: '6px', minHeight: '60px', width: '100%', resize: 'vertical' }}
             />
 
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -336,80 +342,40 @@ const Social = () => {
                 {brew.roastery && <span className="stat-badge">🏭 {brew.roastery}</span>}
                 <span className="stat-badge">{brew.roast_type} Roast</span>
                 <span className="stat-badge">{brew.brew_method}</span>
-                <span className="stat-badge">{brew.coffee_amount} - {brew.region}</span>
+                <span className="stat-badge">{getLiquidOutput(brew.coffee_amount, brew.brew_method)} - {brew.region}</span>
               </div>
             </div>
             
             <div className="brew-card-actions">
-              <button 
-                className={`action-btn ${brew.has_liked ? 'active-like' : ''}`}
-                onClick={() => handleLike(brew.id)}
-              >
+              <button className={`action-btn ${brew.has_liked ? 'active-like' : ''}`} onClick={() => handleLike(brew.id)}>
                 🤍 {brew.like_count}
               </button>
-              
               <button className="action-btn" onClick={() => toggleComments(brew.id)}>
                 💬 {brew.comment_count}
               </button>
-              <button 
-                className={`action-btn ${brew.has_saved ? 'active-save' : ''}`}
-                onClick={() => handleSave(brew.id)}
-              >
+              <button className={`action-btn ${brew.has_saved ? 'active-save' : ''}`} onClick={() => handleSave(brew.id)}>
                 🔖 {brew.has_saved ? 'Saved' : 'Save'}
               </button>
-
               {currentUser && currentUser.toLowerCase() === brew.author.toLowerCase() && (
-                <button
-                  onClick={() => handleDeletePost(brew.id)}
-                  style={{
-                    marginLeft: 'auto',
-                    background: 'transparent',
-                    border: 'none',
-                    color: '#f85149',
-                    cursor: 'pointer',
-                    fontSize: '0.9rem',
-                    display: 'flex',
-                    alignItems: 'center',
-                    gap: '4px'
-                }}
-                titel="Delete Post"
-                >
+                <button onClick={() => handleDeletePost(brew.id)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#f85149', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
                   🗑️ Delete
                 </button>
               )}
             </div>
 
-            {/* Expanding comment section */}
             {activeCommentId === brew.id && (
               <div className="comment-section">
-                
                 <div className="comments-list">
                   {comments.length > 0 ? (
                     comments.map((c) => (
                       <div key={c.id} className="comment-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <div>
-                          <span className="author">@{c.username}</span> 
-                          <span className="comment-text"> {c.comment_text}</span>
-                        </div>
-                        
+                        <div><span className="author">@{c.username}</span> <span className="comment-text"> {c.comment_text}</span></div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button 
-                            className={`action-btn ${c.has_liked ? 'active-like' : ''}`}
-                            onClick={() => handleCommentLike(c.id)}
-                            style={{ fontSize: '0.85rem', padding: '0 8px' }}
-                          >
+                          <button className={`action-btn ${c.has_liked ? 'active-like' : ''}`} onClick={() => handleCommentLike(c.id)} style={{ fontSize: '0.85rem', padding: '0 8px' }}>
                             🤍 {c.like_count || 0}
                           </button>
-
-                          {currentUser === c.username && (
-                            <button 
-                              onClick={() => handleDeleteComment(c.id, brew.id)}
-                              style={{ 
-                                fontSize: '0.85rem', padding: '0 8px', color: '#f85149', 
-                                background: 'transparent', border: 'none', cursor: 'pointer' 
-                              }}
-                              title="Delete Comment"
-                            >
+                          {currentUser && currentUser.toLowerCase() === c.username.toLowerCase() && (
+                            <button onClick={() => handleDeleteComment(c.id, brew.id)} style={{ fontSize: '0.85rem', padding: '0 8px', color: '#f85149', background: 'transparent', border: 'none', cursor: 'pointer' }}>
                               🗑️
                             </button>
                           )}
@@ -417,32 +383,36 @@ const Social = () => {
                       </div>
                     ))
                   ) : (
-                    <p className="no-comments" style={{ color: '#8b949e', fontStyle: 'italic', fontSize: '0.9rem' }}>
-                      No comments yet. Be the first!
-                    </p>
+                    <p className="no-comments" style={{ color: '#8b949e', fontStyle: 'italic', fontSize: '0.9rem' }}>No comments yet. Be the first!</p>
                   )}
                 </div>
-
                 <div className="comment-input-area" style={{ display: 'flex', gap: '8px', marginTop: '12px' }}>
-                  <input
-                    value={commentText}
-                    onChange={(e) => setCommentText(e.target.value)}
-                    placeholder="Write a comment..."
-                    style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #30363d', backgroundColor: '#0d1117', color: '#c9d1d9' }}
-                  />
-                  <button 
-                    onClick={() => handlePostComment(brew.id)}
-                    style={{ padding: '8px 16px', borderRadius: '4px', backgroundColor: '#238636', color: '#ffffff', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    Post
-                  </button>
+                  <input value={commentText} onChange={(e) => setCommentText(e.target.value)} placeholder="Write a comment..." style={{ flex: 1, padding: '8px', borderRadius: '4px', border: '1px solid #30363d', backgroundColor: '#0d1117', color: '#c9d1d9' }} />
+                  <button onClick={() => handlePostComment(brew.id)} style={{ padding: '8px 16px', borderRadius: '4px', backgroundColor: '#238636', color: '#ffffff', border: 'none', cursor: 'pointer', fontWeight: 'bold' }}>Post</button>
                 </div>
-
               </div>
             )}
-
           </div>
         ))}
+
+        {/* --- Pagination --- */}
+        {hasMore && feed.length > 0 && (
+          <div style={{ textAlign: 'center', margin: '30px 0' }}>
+            <button 
+              onClick={() => setPage(prev => prev + 1)}
+              style={{ padding: '10px 20px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+            >
+              Load More Brews 👇
+            </button>
+          </div>
+        )}
+        
+        {!hasMore && feed.length > 0 && (
+          <p style={{ textAlign: 'center', color: '#8b949e', marginTop: '30px', fontStyle: 'italic' }}>
+            You've reached the end of the feed!
+          </p>
+        )}
+
       </div>
     </div>
   );

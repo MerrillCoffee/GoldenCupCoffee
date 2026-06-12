@@ -223,8 +223,12 @@ app.put('/api/brews/:id/share', authenticateToken, async (req, res) => {
 
 //Social Feed Interactions
 
-// Get Main Feed (With Roastery)
+// Get Main Feed
 app.get('/api/social/feed', authenticateToken, async (req, res) => {
+  const page = parseInt(req.query.page) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit; 
+
   try {
     const result = await pool.query(`
       SELECT 
@@ -239,8 +243,8 @@ app.get('/api/social/feed', authenticateToken, async (req, res) => {
       JOIN users u ON b.user_id = u.id
       WHERE b.is_public = true
       ORDER BY b.created_at DESC
-    `, [req.user.id]);
-
+      LIMIT $2 OFFSET $3
+    `, [req.user.id, limit, offset]);
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching social feed:", err.message);
