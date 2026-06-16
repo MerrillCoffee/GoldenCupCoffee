@@ -1,13 +1,8 @@
 import { useState, useEffect, useRef } from "react";
 
-const HOFFMANN_RECIPES = {
-  "Drip Brew": { ratio: 16.67, phase1: "Fill your water reservoir and insert your paper filter.", phase2: "Evenly distribute coffee grounds in the basket and start the machine.", rest: "Let the pot finish dripping entirely, swirl the carafe, and enjoy!" },
-  "Pour Over": { ratio: 16.67, phase1: "Wet filter. Add coffee. Bloom with double the coffee weight in water for 45 seconds (Swirl well!).", phase2: "Pour up to 60% total weight by 1:15, then up to 100% by 1:45. Give it a final gentle swirl.", rest: "Let draw down completely (aim for 3:00 - 3:30 total time), let cool slightly, then enjoy!" },
-  "French Press": { ratio: 16.67, phase1: "Pour boiling water over grounds. Let steep untouched for 4 minutes.", phase2: "Stir the crust on top so it sinks, scoop off the remaining floating white foam/oils, and wait.", rest: "Let rest for an additional 5 to 7 minutes! The sediment will drop to the bottom. Pour gently without pressing down completely!" },
-  "Espresso": { ratio: 2, phase1: "Distribute and tamp grounds perfectly flat. Lock portafilter in.", phase2: "Engage pump. Aim for a 1:2 yield ratio extracting across 25 to 30 seconds.", rest: "Stir the espresso shots to combine the layers, let cool for 60 seconds, and enjoy!" },
-  "Aeropress": { ratio: 11, phase1: "Pour all water in. Insert the plunger slightly into the top to create a vacuum seal. Wait 2 minutes.", phase2: "Remove plunger, swirl the chamber gently, replace plunger, and wait 30 seconds.", rest: "Press down very gently and steadily, stopping right when you hear the hiss (~30 seconds)." },
-  "Percolator": { ratio: 15, phase1: "Fill the bottom chamber with cold water and place grounds into the top basket.", phase2: "Heat until boiling. Lower heat so it perks consistently every few seconds for 5 to 7 minutes.", rest: "Remove from heat, let the remaining water drain through the tube, and serve hot." },
-  "Cold Brew": { ratio: 8, phase1: "Combine coarse grounds and ambient water. Stir well to wet all grounds.", phase2: "Seal tightly and steep at room temperature or in the fridge for 12 to 18 hours.", rest: "Filter out the sludge using a fine mesh sieve or paper coffee filter. Dilute concentrate to taste!" }
+const METHOD_RATIOS = {
+  "Drip Brew": 16.67, "Pour Over": 16.67, "French Press": 16.67,
+  "Espresso": 2, "Aeropress": 11, "Percolator": 15, "Cold Brew": 8
 };
 
 const COMMON_ORIGINS = [
@@ -17,7 +12,6 @@ const COMMON_ORIGINS = [
 ];
 
 export default function Brew() {
-  const [roastery, setRoastery] = useState(""); // NEW
   const [selectedRegion, setSelectedRegion] = useState("Colombia"); 
   const [customRegion, setCustomRegion] = useState(""); 
   const [targetVolume, setTargetVolume] = useState(12); 
@@ -26,12 +20,12 @@ export default function Brew() {
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
+  // Timer States
   const [time, setTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const timerRef = useRef(null);
 
-  const currentRecipe = HOFFMANN_RECIPES[brewMethod];
-
+  // Timer Logic
   useEffect(() => {
     if (isActive) {
       timerRef.current = setInterval(() => {
@@ -55,12 +49,14 @@ export default function Brew() {
     return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
+  // Calculation Engine
   const calculateMeasurements = () => {
     const numericVolume = parseFloat(targetVolume);
     if (isNaN(numericVolume) || numericVolume <= 0) return null;
 
+    const ratio = METHOD_RATIOS[brewMethod];
     const waterMl = Math.round(numericVolume * 29.57); 
-    const coffeeGrams = (waterMl / currentRecipe.ratio).toFixed(1);
+    const coffeeGrams = (waterMl / ratio).toFixed(1);
     const bloomWater = Math.round(coffeeGrams * 2);
 
     return {
@@ -72,6 +68,66 @@ export default function Brew() {
   };
 
   const measurements = calculateMeasurements();
+
+  // Dynamic Recipe Generator
+  const getInstructions = () => {
+    // Fallback values just in case the calculator errors out
+    const w = measurements ? measurements.water : "[water]";
+    const c = measurements ? measurements.coffee : "[coffee]";
+    const b = measurements ? measurements.bloom : "[bloom]";
+    
+    // Specific math steps for Pour Over and Espresso
+    const w60 = measurements ? Math.round(measurements.water * 0.6) : "[60% water]";
+    const ey = measurements ? Math.round(measurements.coffee * 2) : "[yield]";
+
+    switch (brewMethod) {
+      case "Pour Over":
+        return {
+          phase1: `Wet the paper filter with hot water. Add ${c}g of coffee. Bloom with ${b}g of water for 45 seconds (Swirl well!).`,
+          phase2: `Pour up to ${w60}g total weight by 1:15, then up to the full ${w}g by 1:45. Give it a final gentle swirl.`,
+          rest: "Let draw down completely (aim for 3:00 - 3:30 total time), let cool slightly, then enjoy!"
+        };
+      case "French Press":
+        return {
+          phase1: `Add ${c}g of coarse coffee, then pour ${w}g of boiling water over the grounds. Let steep untouched for 4 minutes.`,
+          phase2: "Stir the crust on top so it sinks, scoop off the remaining floating white foam/oils, and wait.",
+          rest: "Let rest for an additional 5 to 7 minutes! The sediment will drop to the bottom. Pour gently without pressing down completely!"
+        };
+      case "Espresso":
+        return {
+          phase1: `Distribute and tamp ${c}g of fine grounds perfectly flat. Lock portafilter in.`,
+          phase2: `Engage pump. Aim for a 1:2 yield ratio (extracting ~${ey}g of liquid espresso) across 25 to 30 seconds.`,
+          rest: "Stir the espresso shots to combine the layers, let cool for 60 seconds, and enjoy!"
+        };
+      case "Aeropress":
+        return {
+          phase1: `Add ${c}g of coffee, then pour all ${w}g of water in. Insert the plunger slightly into the top to create a vacuum seal. Wait 2 minutes.`,
+          phase2: "Remove plunger, swirl the chamber gently, replace plunger, and wait 30 seconds.",
+          rest: "Press down very gently and steadily, stopping right when you hear the hiss (~30 seconds)."
+        };
+      case "Percolator":
+        return {
+          phase1: `Fill the bottom chamber with ${w}g of cold water and place ${c}g of coarse grounds into the top basket.`,
+          phase2: "Heat until boiling. Lower heat so it perks consistently every few seconds for 5 to 7 minutes.",
+          rest: "Remove from heat, let the remaining water drain through the tube, and serve hot."
+        };
+      case "Cold Brew":
+        return {
+          phase1: `Combine ${c}g of coarse grounds and ${w}g of ambient water. Stir well to wet all grounds.`,
+          phase2: "Seal tightly and steep at room temperature or in the fridge for 12 to 18 hours.",
+          rest: "Filter out the sludge using a fine mesh sieve or paper coffee filter. Dilute concentrate to taste!"
+        };
+      case "Drip Brew":
+      default:
+        return {
+          phase1: `Fill your water reservoir with ${w}g (ml) of water and insert your paper filter.`,
+          phase2: `Evenly distribute ${c}g of coffee grounds in the basket and start the machine.`,
+          rest: "Let the pot finish dripping entirely, swirl the carafe, and enjoy!"
+        };
+    }
+  };
+
+  const instructions = getInstructions();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -103,7 +159,6 @@ export default function Brew() {
           "Authorization": `Bearer ${token}`
         },
         body: JSON.stringify({
-          roastery: roastery || "Unknown Roastery",
           region: finalRegion,
           coffee_amount: formattedCoffeeAmount, 
           roast_type: roastType,
@@ -116,7 +171,6 @@ export default function Brew() {
       if (response.ok) {
         setStatusMessage(`Successfully logged your ${data.brew_method} from ${data.region}! ☕`);
         setCustomRegion("");
-        setRoastery("");
       } else {
         setIsError(true);
         setStatusMessage(data.error || "Failed to save brew log.");
@@ -132,17 +186,7 @@ export default function Brew() {
     <div className="brew-page" style={{ padding: "20px" }}>
       <form onSubmit={handleSubmit} className="brew-form">
         <div style={{ display: "flex", gap: "20px", marginBottom: "25px", alignItems: "center", flexWrap: "wrap" }}>
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <label>Roastery: </label>
-            <input 
-              type="text" 
-              placeholder="e.g. Onyx, Verve" 
-              value={roastery}
-              onChange={(e) => setRoastery(e.target.value)}
-              style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "130px" }}
-            />
-          </div>
-
+          
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <label>Region: </label>
             <select 
@@ -212,12 +256,15 @@ export default function Brew() {
         </p>
       )}
 
+      {/* Calculator left Timer Right */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", marginBottom: "25px" }}>
+        
+        {/* calc component */}
         {measurements && (
           <div style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "15px", borderRadius: "6px" }}>
             <h4 style={{ margin: "0 0 10px 0", color: "#2ea043" }}>📐 Custom Scaling Calculator Output</h4>
             <p style={{ margin: "5px 0", color: "#c9d1d9" }}>
-              To make your targeted <strong style={{ color: "#58a6ff" }}>{measurements.unitUsed}</strong> cup using a <strong style={{ color: "#79c0ff" }}>1:{currentRecipe.ratio}</strong> target ratio:
+              To make your targeted <strong style={{ color: "#58a6ff" }}>{measurements.unitUsed}</strong> cup using a <strong style={{ color: "#79c0ff" }}>1:{METHOD_RATIOS[brewMethod]}</strong> target ratio:
             </p>
             <ul style={{ color: "#c9d1d9", paddingLeft: "20px", margin: "5px 0" }}>
               <li>Weigh out exactly <strong style={{ color: "#ff79c6", fontSize: "1.1em" }}>{measurements.coffee} grams</strong> of coffee beans.</li>
@@ -229,6 +276,7 @@ export default function Brew() {
           </div>
         )}
 
+        {/* Stopwatch Timer */}
         <div style={{ background: "#0d1117", border: "1px solid #30363d", padding: "15px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <h4 style={{ margin: "0 0 5px 0", color: "#8b949e" }}>⏱️ Extraction Stopwatch</h4>
           <div style={{ fontSize: "3.2em", fontWeight: "bold", fontFamily: "monospace", color: isActive ? "#58a6ff" : "#c9d1d9", margin: "10px 0" }}>
@@ -237,13 +285,30 @@ export default function Brew() {
           <div style={{ display: "flex", gap: "10px" }}>
             <button 
               onClick={toggleTimer}
-              style={{ background: isActive ? "#da3637" : "#2ea043", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", width: "80px" }}
+              style={{
+                background: isActive ? "#da3637" : "#2ea043", 
+                color: "#ffffff",
+                border: "none",
+                padding: "8px 16px",
+                borderRadius: "6px",
+                fontWeight: "bold",
+                cursor: "pointer",
+                width: "80px"
+              }}
             >
               {isActive ? "Stop" : "Start"}
             </button>
             <button 
               onClick={resetTimer}
-              style={{ background: "#21262d", color: "#c9d1d9", border: "1px solid #30363d", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
+              style={{
+                background: "#21262d",
+                color: "#c9d1d9",
+                border: "1px solid #30363d",
+                padding: "8px 16px",
+                borderRadius: "6px",
+                fontWeight: "bold",
+                cursor: "pointer"
+              }}
             >
               Reset
             </button>
@@ -251,21 +316,22 @@ export default function Brew() {
         </div>
       </div>
       
+      {/* Dynamic Method Instructions */}
       <div style={{ background: "#161b22", border: "1px solid #30363d", padding: "20px", borderRadius: "6px" }}>
         <h3 style={{ margin: "0 0 15px 0", color: "#58a6ff" }}>
           Official Hoffmann Technique: <span style={{ color: "#c9d1d9" }}>{brewMethod}</span>
         </h3>
         <div>
           <strong style={{ color: "#8b949e" }}>Phase 1 (Preparation):</strong>
-          <p style={{ margin: "5px 0 12px 0", color: "#c9d1d9" }}>{currentRecipe.phase1}</p>
+          <p style={{ margin: "5px 0 12px 0", color: "#c9d1d9" }}>{instructions.phase1}</p>
         </div>
         <div>
           <strong style={{ color: "#8b949e" }}>Phase 2 (Extraction):</strong>
-          <p style={{ margin: "5px 0 12px 0", color: "#c9d1d9" }}>{currentRecipe.phase2}</p>
+          <p style={{ margin: "5px 0 12px 0", color: "#c9d1d9" }}>{instructions.phase2}</p>
         </div>
         <div>
           <strong style={{ color: "#8b949e" }}>Final Step / Resting Time:</strong>
-          <p style={{ margin: "5px 0 0 0", color: "#c9d1d9" }}>{currentRecipe.rest}</p>
+          <p style={{ margin: "5px 0 0 0", color: "#c9d1d9" }}>{instructions.rest}</p>
         </div>
       </div>
     </div>
