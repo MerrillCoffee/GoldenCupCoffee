@@ -1,5 +1,7 @@
 import { useState } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
+import { FaCoffee, FaClipboardList, FaBookOpen, FaGlobe, FaUserCircle } from "react-icons/fa";
+
 import Account from "./account/account";
 import Brew from "./Brew/Brew";
 import Logs from "./Logs/Logs";
@@ -15,11 +17,11 @@ export default function App() {
     <BrowserRouter>
         <div className="app-container">
             <nav className="nav-header">
-                <Link to="/brew" className="nav-tab">Brew</Link>
-                <Link to="/logs" className="nav-tab">Logs</Link>
-                <Link to="/learning" className="nav-tab">Learning</Link>
-                <Link to="/social" className="nav-tab">Social</Link>
-                <Link to="/account" className="nav-tab">Account</Link>
+                <Link to="/brew" className="nav-tab"><FaCoffee /> Brew</Link>
+                <Link to="/logs" className="nav-tab"><FaClipboardList /> Logs</Link>
+                <Link to="/learning" className="nav-tab"><FaBookOpen /> Learning</Link>
+                <Link to="/social" className="nav-tab"><FaGlobe /> Social</Link>
+                <Link to="/account" className="nav-tab"><FaUserCircle /> Account</Link>
             </nav>
 
             <main className="content-area">

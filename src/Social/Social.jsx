@@ -11,8 +11,10 @@ const Social = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Profile Viewing State
+  // Feed Types & Profile Viewing
+  const [feedFilter, setFeedFilter] = useState('global'); // 'global' or 'following'
   const [viewingProfile, setViewingProfile] = useState(null);
+  const [isFollowingProfile, setIsFollowingProfile] = useState(false);
 
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
@@ -35,13 +37,14 @@ const Social = () => {
     console.error("Could not parse token");
   }
 
-  const fetchFeed = async (pageNumber = 1, profileUser = viewingProfile) => {
+  // Fetch Feed
+  const fetchFeed = async (pageNumber = 1, profileUser = viewingProfile, currentFilter = feedFilter) => {
     try {
       const token = localStorage.getItem('token');
       
       const endpoint = profileUser 
         ? `/api/social/users/${profileUser}/brews?page=${pageNumber}`
-        : `/api/social/feed?page=${pageNumber}`;
+        : `/api/social/feed?page=${pageNumber}&filter=${currentFilter}`;
 
       const response = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${token}` }
@@ -51,17 +54,12 @@ const Social = () => {
 
       const data = await response.json();
       
-      if (data.length < 10) {
-        setHasMore(false);
-      } else {
-        setHasMore(true);
-      }
+      if (data.length < 10) setHasMore(false);
+      else setHasMore(true);
 
-      if (pageNumber === 1) {
-        setFeed(data);
-      } else {
-        setFeed(prevFeed => [...prevFeed, ...data]);
-      }
+      if (pageNumber === 1) setFeed(data);
+      else setFeed(prevFeed => [...prevFeed, ...data]);
+      
     } catch (err) {
       setError(err.message);
     } finally {
@@ -69,28 +67,56 @@ const Social = () => {
     }
   };
 
+  // Run a fresh fetch when the user toggles between Global and Following
   useEffect(() => {
-    fetchFeed(1, null);
-  }, []);
+    if (!viewingProfile) {
+      setPage(1);
+      fetchFeed(1, null, feedFilter);
+    }
+  }, [feedFilter]);
 
   // Profile Navigation Handlers
-  const loadProfile = (username) => {
+  const loadProfile = async (username) => {
     setViewingProfile(username);
     setPage(1);
-    fetchFeed(1, username);
+    fetchFeed(1, username, feedFilter);
     window.scrollTo({ top: 0, behavior: 'smooth' });
+
+    if (currentUser && currentUser.toLowerCase() !== username.toLowerCase()) {
+      try {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`/api/social/users/${username}/is_following`, {
+          headers: { 'Authorization': `Bearer ${token}` }
+        });
+        const data = await res.json();
+        setIsFollowingProfile(data.isFollowing);
+      } catch (e) { console.error("Error checking follow status"); }
+    }
   };
 
   const closeProfile = () => {
     setViewingProfile(null);
     setPage(1);
-    fetchFeed(1, null);
+    fetchFeed(1, null, feedFilter);
+  };
+
+  const handleToggleFollow = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      const res = await fetch(`/api/social/users/${viewingProfile}/follow`, {
+        method: 'POST',
+        headers: { 'Authorization': `Bearer ${token}` }
+      });
+      const data = await res.json();
+      setIsFollowingProfile(data.isFollowing);
+
+    } catch (e) { console.error("Error toggling follow"); }
   };
 
   const loadMore = () => {
     const nextPage = page + 1;
     setPage(nextPage);
-    fetchFeed(nextPage, viewingProfile);
+    fetchFeed(nextPage, viewingProfile, feedFilter);
   };
 
   const getLiquidOutput = (coffeeAmountStr, brewMethod) => {
@@ -121,22 +147,17 @@ const Social = () => {
         setPostForm({ roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", blurb: "" });
         setShowPostForm(false);
         setPage(1);
-        fetchFeed(1, viewingProfile);
+        fetchFeed(1, viewingProfile, feedFilter); 
       } else {
         alert("Failed to post to the community.");
       }
-    } catch (err) {
-      console.error("Failed to post:", err);
-    }
+    } catch (err) { console.error("Failed to post:", err); }
   };
 
   const handleLike = async (brewId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/social/brews/${brewId}/like`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await fetch(`/api/social/brews/${brewId}/like`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
       if (!response.ok) throw new Error('Failed to toggle like.');
       const data = await response.json();
       setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, has_liked: data.hasLiked, like_count: data.like_count } : brew));
@@ -146,10 +167,7 @@ const Social = () => {
   const handleSave = async (brewId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/social/brews/${brewId}/save`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
+      const response = await fetch(`/api/social/brews/${brewId}/save`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
       if (!response.ok) throw new Error('Failed to toggle save.');
       const data = await response.json();
       setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, has_saved: data.hasSaved } : brew));
@@ -165,8 +183,7 @@ const Social = () => {
       try {
         const token = localStorage.getItem('token');
         const response = await fetch(`/api/social/brews/${brewId}/comments`, { headers: { 'Authorization': `Bearer ${token}` } });
-        const data = await response.json();
-        setComments(data);
+        setComments(await response.json());
       } catch (err) { console.error("Error fetching comments:", err); }
     }
   };
@@ -183,8 +200,7 @@ const Social = () => {
       if (response.ok) {
         setCommentText("");
         const updatedResponse = await fetch(`/api/social/brews/${brewId}/comments`, { headers: { 'Authorization': `Bearer ${token}` } });
-        const updatedData = await updatedResponse.json();
-        setComments(updatedData);
+        setComments(await updatedResponse.json());
         setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, comment_count: parseInt(brew.comment_count) + 1 } : brew));
       }
     } catch (err) { console.error("Comment post error:", err); }
@@ -227,38 +243,72 @@ const Social = () => {
   return (
     <div className="social-container">
       
+      {/* Profile Header View vs Global Header View */}
       {viewingProfile ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
-          <button 
-            onClick={closeProfile} 
-            style={{ background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-          >
+          <button onClick={closeProfile} style={{ background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
             ⬅️ Back to Feed
           </button>
           <h2 className="timeline-header" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>@{viewingProfile}'s Brews</h2>
+          
+          {/* Dynamic Follow Button (Only if you aren't viewing yourself) */}
+          {currentUser && currentUser.toLowerCase() !== viewingProfile.toLowerCase() && (
+            <button 
+              onClick={handleToggleFollow}
+              style={{ 
+                marginLeft: 'auto',
+                background: isFollowingProfile ? '#21262d' : '#c9d1d9', 
+                color: isFollowingProfile ? '#c9d1d9' : '#0d1117', 
+                border: isFollowingProfile ? '1px solid #30363d' : 'none', 
+                padding: '6px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold' 
+              }}
+            >
+              {isFollowingProfile ? 'Unfollow' : 'Follow'}
+            </button>
+          )}
         </div>
       ) : (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '10px' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
           <h2 className="timeline-header" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>Community Brews</h2>
-          <button 
-            onClick={() => setShowPostForm(!showPostForm)}
-            style={{ background: showPostForm ? '#21262d' : '#238636', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-          >
+          <button onClick={() => setShowPostForm(!showPostForm)} style={{ background: showPostForm ? '#21262d' : '#238636', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
             {showPostForm ? 'Cancel' : '📝 Share a Brew'}
           </button>
         </div>
       )}
 
+      {/* Toggles (Hidden when viewing a specific profile) */}
+      {!viewingProfile && (
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
+          <button 
+            onClick={() => setFeedFilter('global')}
+            style={{ 
+              padding: '6px 14px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold',
+              background: feedFilter === 'global' ? '#21262d' : 'transparent', 
+              color: feedFilter === 'global' ? '#c9d1d9' : '#8b949e', 
+              border: feedFilter === 'global' ? '1px solid #30363d' : '1px solid transparent'
+            }}
+          >
+            🌍 Global Feed
+          </button>
+          <button 
+            onClick={() => setFeedFilter('following')}
+            style={{ 
+              padding: '6px 14px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold',
+              background: feedFilter === 'following' ? '#21262d' : 'transparent', 
+              color: feedFilter === 'following' ? '#c9d1d9' : '#8b949e', 
+              border: feedFilter === 'following' ? '1px solid #30363d' : '1px solid transparent'
+            }}
+          >
+            👥 Following
+          </button>
+        </div>
+      )}
+
+      {/* Post Creation Form */}
       {showPostForm && !viewingProfile && (
         <div className="brew-card" style={{ border: '1px solid #2ea043', marginBottom: '2rem' }}>
           <form onSubmit={handlePostSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
-            <textarea
-              placeholder="What's brewing? Share your thoughts..."
-              value={postForm.blurb}
-              onChange={(e) => setPostForm({...postForm, blurb: e.target.value})}
-              required
-              style={{ boxSizing: 'border-box', background: '#0d1117', border: '1px solid #30363d', padding: '10px', color: '#c9d1d9', borderRadius: '6px', minHeight: '60px', width: '100%', resize: 'vertical' }}
-            />
+            <textarea placeholder="What's brewing? Share your thoughts..." value={postForm.blurb} onChange={(e) => setPostForm({...postForm, blurb: e.target.value})} required style={{ boxSizing: 'border-box', background: '#0d1117', border: '1px solid #30363d', padding: '10px', color: '#c9d1d9', borderRadius: '6px', minHeight: '60px', width: '100%', resize: 'vertical' }} />
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <input type="text" placeholder="Roastery (e.g. Onyx)" value={postForm.roastery} onChange={(e) => setPostForm({...postForm, roastery: e.target.value})} style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }} />
               <input type="text" placeholder="Region (e.g. Ethiopia)" value={postForm.region} required onChange={(e) => setPostForm({...postForm, region: e.target.value})} style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }} />
@@ -285,8 +335,13 @@ const Social = () => {
         </div>
       )}
 
+      {/* Empty State Notification */}
       {feed.length === 0 && !loading && (
-        <p style={{ textAlign: 'center', color: '#8b949e', marginTop: '30px' }}>No brews found.</p>
+        <p style={{ textAlign: 'center', color: '#8b949e', marginTop: '30px' }}>
+          {feedFilter === 'following' && !viewingProfile 
+            ? "You aren't following anyone with public posts yet. Explore the Global Feed!" 
+            : "No brews found."}
+        </p>
       )}
 
       <div className="timeline-feed">
@@ -294,12 +349,7 @@ const Social = () => {
           <div key={brew.id} className="brew-card">
             
             <div className="brew-card-header">
-              <span 
-                className="author" 
-                onClick={() => loadProfile(brew.author)}
-                style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '4px' }}
-                title={`View @${brew.author}'s profile`}
-              >
+              <span className="author" onClick={() => loadProfile(brew.author)} style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '4px' }} title={`View @${brew.author}'s profile`}>
                 @{brew.author}
               </span>
               <span className="timestamp">{new Date(brew.created_at).toLocaleDateString()}</span>
@@ -316,19 +366,11 @@ const Social = () => {
             </div>
             
             <div className="brew-card-actions">
-              <button className={`action-btn ${brew.has_liked ? 'active-like' : ''}`} onClick={() => handleLike(brew.id)}>
-                🤍 {brew.like_count}
-              </button>
-              <button className="action-btn" onClick={() => toggleComments(brew.id)}>
-                💬 {brew.comment_count}
-              </button>
-              <button className={`action-btn ${brew.has_saved ? 'active-save' : ''}`} onClick={() => handleSave(brew.id)}>
-                🔖 {brew.has_saved ? 'Saved' : 'Save'}
-              </button>
+              <button className={`action-btn ${brew.has_liked ? 'active-like' : ''}`} onClick={() => handleLike(brew.id)}>🤍 {brew.like_count}</button>
+              <button className="action-btn" onClick={() => toggleComments(brew.id)}>💬 {brew.comment_count}</button>
+              <button className={`action-btn ${brew.has_saved ? 'active-save' : ''}`} onClick={() => handleSave(brew.id)}>🔖 {brew.has_saved ? 'Saved' : 'Save'}</button>
               {currentUser && currentUser.toLowerCase() === brew.author.toLowerCase() && (
-                <button onClick={() => handleDeletePost(brew.id)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#f85149', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>
-                  🗑️ Delete
-                </button>
+                <button onClick={() => handleDeletePost(brew.id)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#f85149', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🗑️ Delete</button>
               )}
             </div>
 
@@ -339,24 +381,13 @@ const Social = () => {
                     comments.map((c) => (
                       <div key={c.id} className="comment-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
                         <div>
-                          {/* Comments are also clickable! */}
-                          <span 
-                            className="author" 
-                            onClick={() => loadProfile(c.username)}
-                            style={{ cursor: 'pointer', textDecoration: 'underline' }}
-                          >
-                            @{c.username}
-                          </span> 
+                          <span className="author" onClick={() => loadProfile(c.username)} style={{ cursor: 'pointer', textDecoration: 'underline' }}>@{c.username}</span> 
                           <span className="comment-text"> {c.comment_text}</span>
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                          <button className={`action-btn ${c.has_liked ? 'active-like' : ''}`} onClick={() => handleCommentLike(c.id)} style={{ fontSize: '0.85rem', padding: '0 8px' }}>
-                            🤍 {c.like_count || 0}
-                          </button>
+                          <button className={`action-btn ${c.has_liked ? 'active-like' : ''}`} onClick={() => handleCommentLike(c.id)} style={{ fontSize: '0.85rem', padding: '0 8px' }}>🤍 {c.like_count || 0}</button>
                           {currentUser && currentUser.toLowerCase() === c.username.toLowerCase() && (
-                            <button onClick={() => handleDeleteComment(c.id, brew.id)} style={{ fontSize: '0.85rem', padding: '0 8px', color: '#f85149', background: 'transparent', border: 'none', cursor: 'pointer' }}>
-                              🗑️
-                            </button>
+                            <button onClick={() => handleDeleteComment(c.id, brew.id)} style={{ fontSize: '0.85rem', padding: '0 8px', color: '#f85149', background: 'transparent', border: 'none', cursor: 'pointer' }}>🗑️</button>
                           )}
                         </div>
                       </div>
@@ -374,12 +405,10 @@ const Social = () => {
           </div>
         ))}
 
+        {/* Pagination Controls */}
         {hasMore && feed.length > 0 && (
           <div style={{ textAlign: 'center', margin: '30px 0' }}>
-            <button 
-              onClick={loadMore}
-              style={{ padding: '10px 20px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
-            >
+            <button onClick={loadMore} style={{ padding: '10px 20px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
               Load More Brews 👇
             </button>
           </div>

@@ -232,8 +232,17 @@ app.put('/api/brews/:id/share', authenticateToken, async (req, res) => {
 // Get Main Feed
 app.get('/api/social/feed', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
+  const filter = req.query.filter || 'global';
   const limit = 10;
-  const offset = (page - 1) * limit; 
+  const offset = (page - 1) * limit;
+
+  let joinClause = '';
+  let whereClause = 'b.is_public = true';
+
+  if (filter === 'following') {
+    joinClause = 'JOIN follows f ON u.id = f.following_id';
+    whereClause += ' AND f.follower_id = $1';
+  }
 
   try {
     const result = await pool.query(`
@@ -247,14 +256,54 @@ app.get('/api/social/feed', authenticateToken, async (req, res) => {
         EXISTS(SELECT 1 FROM saved_recipes WHERE brew_id = b.id AND user_id = $1) AS has_saved
       FROM brews b
       JOIN users u ON b.user_id = u.id
-      WHERE b.is_public = true
+      ${joinClause}
+      WHERE ${whereClause}
       ORDER BY b.created_at DESC
       LIMIT $2 OFFSET $3
     `, [req.user.id, limit, offset]);
+
     res.json(result.rows);
   } catch (err) {
     console.error("Error fetching social feed:", err.message);
     res.status(500).json({ error: "Failed to load the community timeline." });
+  }
+});
+
+// Toggle Follow a User
+app.post('/api/social/users/:username/follow', authenticateToken, async (req, res) => {
+  try {
+    // Find the user ID of the person we want to follow
+    const targetUser = await pool.query('SELECT id FROM users WHERE username = $1', [req.params.username]);
+    if (targetUser.rowCount === 0) return res.status(404).json({ error: "User not found" });
+    const targetId = targetUser.rows[0].id;
+
+    if (targetId === req.user.id) return res.status(400).json({ error: "Cannot follow yourself" });
+
+    const check = await pool.query('SELECT * FROM follows WHERE follower_id = $1 AND following_id = $2', [req.user.id, targetId]);
+
+    if (check.rowCount > 0) {
+      await pool.query('DELETE FROM follows WHERE follower_id = $1 AND following_id = $2', [req.user.id, targetId]);
+      res.json({ isFollowing: false });
+    } else {
+      await pool.query('INSERT INTO follows (follower_id, following_id) VALUES ($1, $2)', [req.user.id, targetId]);
+      res.json({ isFollowing: true });
+    }
+  } catch (err) {
+    console.error("Follow error:", err);
+    res.status(500).json({ error: "Server error toggling follow" });
+  }
+});
+
+// Check if we are following a specific user
+app.get('/api/social/users/:username/is_following', authenticateToken, async (req, res) => {
+  try {
+    const targetUser = await pool.query('SELECT id FROM users WHERE username = $1', [req.params.username]);
+    if (targetUser.rowCount === 0) return res.json({ isFollowing: false });
+    
+    const check = await pool.query('SELECT 1 FROM follows WHERE follower_id = $1 AND following_id = $2', [req.user.id, targetUser.rows[0].id]);
+    res.json({ isFollowing: check.rowCount > 0 });
+  } catch (err) {
+    res.status(500).json({ error: "Server error checking follow status" });
   }
 });
 
