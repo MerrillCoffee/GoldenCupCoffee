@@ -17,15 +17,19 @@ export default function Brew() {
   const [targetVolume, setTargetVolume] = useState(12); 
   const [roastType, setRoastType] = useState("Medium");
   const [brewMethod, setBrewMethod] = useState("Drip Brew"); 
+  
+  // --- NEW: Espresso Specific State ---
+  const [espressoShots, setEspressoShots] = useState(2); // Default to a Double Shot
+
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
 
-  // Timer States
+  // --- Timer States ---
   const [time, setTime] = useState(0);
   const [isActive, setIsActive] = useState(false);
   const timerRef = useRef(null);
 
-  // Timer Logic
+  // --- Timer Logic ---
   useEffect(() => {
     if (isActive) {
       timerRef.current = setInterval(() => {
@@ -49,8 +53,19 @@ export default function Brew() {
     return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
 
-  // Calculation Engine
+  // --- Calculation Engine ---
   const calculateMeasurements = () => {
+    if (brewMethod === "Espresso") {
+      const coffeeGrams = espressoShots === 1 ? 9 : 18;
+      const liquidYield = coffeeGrams * METHOD_RATIOS["Espresso"];
+      return {
+        water: liquidYield,
+        coffee: coffeeGrams,
+        bloom: 0,
+        unitUsed: espressoShots === 1 ? "Single Shot" : "Double Shot"
+      };
+    }
+
     const numericVolume = parseFloat(targetVolume);
     if (isNaN(numericVolume) || numericVolume <= 0) return null;
 
@@ -69,14 +84,12 @@ export default function Brew() {
 
   const measurements = calculateMeasurements();
 
-  // Dynamic Recipe Generator
+  // --- Dynamic Recipe Generator ---
   const getInstructions = () => {
-    // Fallback values just in case the calculator errors out
     const w = measurements ? measurements.water : "[water]";
     const c = measurements ? measurements.coffee : "[coffee]";
     const b = measurements ? measurements.bloom : "[bloom]";
     
-    // Specific math steps for Pour Over and Espresso
     const w60 = measurements ? Math.round(measurements.water * 0.6) : "[60% water]";
     const ey = measurements ? Math.round(measurements.coffee * 2) : "[yield]";
 
@@ -211,26 +224,6 @@ export default function Brew() {
             )}
           </div>
 
-          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div style={{ width: "110px", display: "inline-block" }}>
-              <label>Volume: <strong style={{ color: "#58a6ff" }}>{targetVolume} oz</strong></label>
-            </div>
-            <input 
-              type="range" min="4" max="80" step="1" value={targetVolume}
-              onChange={(e) => setTargetVolume(e.target.value)}
-              style={{ cursor: "pointer", accentColor: "#2ea043", width: "150px" }}
-            />
-          </div>
-
-          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-            <label>Roast: </label>
-            <select value={roastType} onChange={(e) => setRoastType(e.target.value)} style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}>
-              <option value="Medium">Medium</option>
-              <option value="Light">Light</option>
-              <option value="Dark">Dark</option>
-            </select>
-          </div>
-
           <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
             <label>Method: </label>
             <select value={brewMethod} onChange={(e) => setBrewMethod(e.target.value)} style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}>
@@ -241,6 +234,40 @@ export default function Brew() {
               <option value="Aeropress">Aeropress</option>
               <option value="Percolator">Percolator</option>
               <option value="Cold Brew">Cold Brew</option>
+            </select>
+          </div>
+
+          {brewMethod === "Espresso" ? (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <label>Size: </label>
+              <select 
+                value={espressoShots} 
+                onChange={(e) => setEspressoShots(parseInt(e.target.value))}
+                style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}
+              >
+                <option value={1}>Single Shot</option>
+                <option value={2}>Double Shot</option>
+              </select>
+            </div>
+          ) : (
+            <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+              <div style={{ width: "110px", display: "inline-block" }}>
+                <label>Volume: <strong style={{ color: "#58a6ff" }}>{targetVolume} oz</strong></label>
+              </div>
+              <input 
+                type="range" min="4" max="80" step="1" value={targetVolume}
+                onChange={(e) => setTargetVolume(e.target.value)}
+                style={{ cursor: "pointer", accentColor: "#2ea043", width: "150px" }}
+              />
+            </div>
+          )}
+
+          <div style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+            <label>Roast: </label>
+            <select value={roastType} onChange={(e) => setRoastType(e.target.value)} style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}>
+              <option value="Medium">Medium</option>
+              <option value="Light">Light</option>
+              <option value="Dark">Dark</option>
             </select>
           </div>
 
@@ -256,19 +283,24 @@ export default function Brew() {
         </p>
       )}
 
-      {/* Calculator left Timer Right */}
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(300px, 1fr))", gap: "20px", marginBottom: "25px" }}>
         
-        {/* calc component */}
         {measurements && (
           <div style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "15px", borderRadius: "6px" }}>
             <h4 style={{ margin: "0 0 10px 0", color: "#2ea043" }}>📐 Custom Scaling Calculator Output</h4>
             <p style={{ margin: "5px 0", color: "#c9d1d9" }}>
-              To make your targeted <strong style={{ color: "#58a6ff" }}>{measurements.unitUsed}</strong> cup using a <strong style={{ color: "#79c0ff" }}>1:{METHOD_RATIOS[brewMethod]}</strong> target ratio:
+              To make your targeted <strong style={{ color: "#58a6ff" }}>{measurements.unitUsed}</strong> using a <strong style={{ color: "#79c0ff" }}>1:{METHOD_RATIOS[brewMethod]}</strong> target ratio:
             </p>
             <ul style={{ color: "#c9d1d9", paddingLeft: "20px", margin: "5px 0" }}>
               <li>Weigh out exactly <strong style={{ color: "#ff79c6", fontSize: "1.1em" }}>{measurements.coffee} grams</strong> of coffee beans.</li>
-              <li>Heat up exactly <strong style={{ color: "#58a6ff", fontSize: "1.1em" }}>{measurements.water} grams (ml)</strong> of water.</li>
+              
+              {/* Dynamic instruction for water/yield based on method */}
+              {brewMethod === "Espresso" ? (
+                <li>Aim to extract exactly <strong style={{ color: "#58a6ff", fontSize: "1.1em" }}>{measurements.water} grams</strong> of liquid espresso into your cup.</li>
+              ) : (
+                <li>Heat up exactly <strong style={{ color: "#58a6ff", fontSize: "1.1em" }}>{measurements.water} grams (ml)</strong> of water.</li>
+              )}
+              
               {brewMethod === "Pour Over" && (
                 <li>Your initial 45-second bloom stage requires pouring exactly <strong style={{ color: "#58a6ff" }}>{measurements.bloom}g</strong> of water.</li>
               )}
@@ -276,7 +308,6 @@ export default function Brew() {
           </div>
         )}
 
-        {/* Stopwatch Timer */}
         <div style={{ background: "#0d1117", border: "1px solid #30363d", padding: "15px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
           <h4 style={{ margin: "0 0 5px 0", color: "#8b949e" }}>⏱️ Extraction Stopwatch</h4>
           <div style={{ fontSize: "3.2em", fontWeight: "bold", fontFamily: "monospace", color: isActive ? "#58a6ff" : "#c9d1d9", margin: "10px 0" }}>
@@ -316,7 +347,6 @@ export default function Brew() {
         </div>
       </div>
       
-      {/* Dynamic Method Instructions */}
       <div style={{ background: "#161b22", border: "1px solid #30363d", padding: "20px", borderRadius: "6px" }}>
         <h3 style={{ margin: "0 0 15px 0", color: "#58a6ff" }}>
           Official Hoffmann Technique: <span style={{ color: "#c9d1d9" }}>{brewMethod}</span>
