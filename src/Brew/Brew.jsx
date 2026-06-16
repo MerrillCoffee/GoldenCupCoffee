@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 
+// We extract just the ratios so our calculator can still use them globally
 const METHOD_RATIOS = {
   "Drip Brew": 16.67, "Pour Over": 16.67, "French Press": 16.67,
   "Espresso": 2, "Aeropress": 11, "Percolator": 15, "Cold Brew": 8
@@ -18,8 +19,7 @@ export default function Brew() {
   const [roastType, setRoastType] = useState("Medium");
   const [brewMethod, setBrewMethod] = useState("Drip Brew"); 
   
-  // --- NEW: Espresso Specific State ---
-  const [espressoShots, setEspressoShots] = useState(2); // Default to a Double Shot
+  const [espressoShots, setEspressoShots] = useState(2);
 
   const [statusMessage, setStatusMessage] = useState("");
   const [isError, setIsError] = useState(false);
@@ -59,7 +59,7 @@ export default function Brew() {
       const coffeeGrams = espressoShots === 1 ? 9 : 18;
       const liquidYield = coffeeGrams * METHOD_RATIOS["Espresso"];
       return {
-        water: liquidYield,
+        water: liquidYield, 
         coffee: coffeeGrams,
         bloom: 0,
         unitUsed: espressoShots === 1 ? "Single Shot" : "Double Shot"
@@ -102,7 +102,7 @@ export default function Brew() {
         };
       case "French Press":
         return {
-          phase1: `Add ${c}g of coarse coffee, then pour ${w}g of boiling water over the grounds. Let steep untouched for 4 minutes.`,
+          phase1: `Add ${c}g of coarse coffee, then pour ${w}g of water over the grounds. Let steep untouched for 4 minutes.`,
           phase2: "Stir the crust on top so it sinks, scoop off the remaining floating white foam/oils, and wait.",
           rest: "Let rest for an additional 5 to 7 minutes! The sediment will drop to the bottom. Pour gently without pressing down completely!"
         };
@@ -294,9 +294,10 @@ export default function Brew() {
             <ul style={{ color: "#c9d1d9", paddingLeft: "20px", margin: "5px 0" }}>
               <li>Weigh out exactly <strong style={{ color: "#ff79c6", fontSize: "1.1em" }}>{measurements.coffee} grams</strong> of coffee beans.</li>
               
-              {/* Dynamic instruction for water/yield based on method */}
               {brewMethod === "Espresso" ? (
                 <li>Aim to extract exactly <strong style={{ color: "#58a6ff", fontSize: "1.1em" }}>{measurements.water} grams</strong> of liquid espresso into your cup.</li>
+              ) : brewMethod === "Cold Brew" ? (
+                <li>Use exactly <strong style={{ color: "#58a6ff", fontSize: "1.1em" }}>{measurements.water} grams (ml)</strong> of room temperature or cold water.</li>
               ) : (
                 <li>Heat up exactly <strong style={{ color: "#58a6ff", fontSize: "1.1em" }}>{measurements.water} grams (ml)</strong> of water.</li>
               )}
@@ -351,6 +352,22 @@ export default function Brew() {
         <h3 style={{ margin: "0 0 15px 0", color: "#58a6ff" }}>
           Official Hoffmann Technique: <span style={{ color: "#c9d1d9" }}>{brewMethod}</span>
         </h3>
+
+        {/* --- SMART TEMPERATURE RECOMMENDATION --- */}
+        <div style={{ marginBottom: "15px", padding: "10px", background: "#0d1117", borderRadius: "4px", borderLeft: "4px solid #d2a8ff" }}>
+          <strong style={{ color: "#d2a8ff" }}>🌡️ Optimal Water Temp: </strong>
+          
+          {brewMethod === "Cold Brew" ? (
+             <span style={{ color: "#c9d1d9" }}>Ambient or Cold Filtered Water</span>
+          ) : (
+            <>
+              <span style={{ color: "#c9d1d9" }}>93°C - 96°C (199.4°F - 204.8°F)</span>
+              {roastType === "Dark" && <span style={{ color: "#8b949e", fontSize: "0.85em", display: "block", marginTop: "4px" }}>*Tip: For dark roasts, try leaning closer to 90°C (194°F) to avoid extracting bitter flavors.</span>}
+              {roastType === "Light" && <span style={{ color: "#8b949e", fontSize: "0.85em", display: "block", marginTop: "4px" }}>*Tip: For light roasts, you can even push closer to boiling to maximize extraction!</span>}
+            </>
+          )}
+        </div>
+
         <div>
           <strong style={{ color: "#8b949e" }}>Phase 1 (Preparation):</strong>
           <p style={{ margin: "5px 0 12px 0", color: "#c9d1d9" }}>{instructions.phase1}</p>
