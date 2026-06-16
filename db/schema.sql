@@ -62,6 +62,13 @@ CREATE TABLE saved_recipes (
   UNIQUE(user_id, brew_id)
 );
 
+CREATE TABLE follows (
+  follower_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  following_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (follower_id, following_id)
+);
+
 -- Seed Data (Updated with Roasteries)
 INSERT INTO users (username, password) 
 VALUES ('coffee_lover_99', 'supersecretpassword');

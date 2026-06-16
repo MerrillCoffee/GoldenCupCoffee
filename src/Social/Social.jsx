@@ -11,11 +11,12 @@ const Social = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Pagination State
+  // Profile Viewing State
+  const [viewingProfile, setViewingProfile] = useState(null);
+
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
   
-  // Comment & Post State
   const [activeCommentId, setActiveCommentId] = useState(null);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
@@ -34,17 +35,22 @@ const Social = () => {
     console.error("Could not parse token");
   }
 
-  const fetchFeed = async (pageNumber = 1) => {
+  const fetchFeed = async (pageNumber = 1, profileUser = viewingProfile) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/social/feed?page=${pageNumber}`, {
+      
+      const endpoint = profileUser 
+        ? `/api/social/users/${profileUser}/brews?page=${pageNumber}`
+        : `/api/social/feed?page=${pageNumber}`;
+
+      const response = await fetch(endpoint, {
         headers: { 'Authorization': `Bearer ${token}` }
       });
 
       if (!response.ok) throw new Error('Failed to fetch the timeline.');
 
       const data = await response.json();
-
+      
       if (data.length < 10) {
         setHasMore(false);
       } else {
@@ -63,10 +69,29 @@ const Social = () => {
     }
   };
 
-  // Trigger fetch when the page state changes
   useEffect(() => {
-    fetchFeed(page);
-  }, [page]);
+    fetchFeed(1, null);
+  }, []);
+
+  // Profile Navigation Handlers
+  const loadProfile = (username) => {
+    setViewingProfile(username);
+    setPage(1);
+    fetchFeed(1, username);
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const closeProfile = () => {
+    setViewingProfile(null);
+    setPage(1);
+    fetchFeed(1, null);
+  };
+
+  const loadMore = () => {
+    const nextPage = page + 1;
+    setPage(nextPage);
+    fetchFeed(nextPage, viewingProfile);
+  };
 
   const getLiquidOutput = (coffeeAmountStr, brewMethod) => {
     const str = String(coffeeAmountStr).toLowerCase();
@@ -83,18 +108,12 @@ const Social = () => {
     e.preventDefault();
     const token = localStorage.getItem('token');
     
-    if (!postForm.blurb || !postForm.region) {
-      alert("Please include at least your thoughts and a coffee region!");
-      return;
-    }
+    if (!postForm.blurb || !postForm.region) return alert("Please include at least your thoughts and a coffee region!");
 
     try {
       const response = await fetch('/api/brews', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ ...postForm, is_public: true })
       });
 
@@ -102,7 +121,7 @@ const Social = () => {
         setPostForm({ roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", blurb: "" });
         setShowPostForm(false);
         setPage(1);
-        fetchFeed(1);
+        fetchFeed(1, viewingProfile);
       } else {
         alert("Failed to post to the community.");
       }
@@ -118,16 +137,10 @@ const Social = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
       if (!response.ok) throw new Error('Failed to toggle like.');
       const data = await response.json();
-
-      setFeed(prevFeed => prevFeed.map(brew => 
-        brew.id === brewId ? { ...brew, has_liked: data.hasLiked, like_count: data.like_count } : brew
-      ));
-    } catch (err) {
-      console.error("Like error:", err.message);
-    }
+      setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, has_liked: data.hasLiked, like_count: data.like_count } : brew));
+    } catch (err) { console.error("Like error:", err.message); }
   };
 
   const handleSave = async (brewId) => {
@@ -137,16 +150,10 @@ const Social = () => {
         method: 'POST',
         headers: { 'Authorization': `Bearer ${token}` }
       });
-
       if (!response.ok) throw new Error('Failed to toggle save.');
       const data = await response.json();
-
-      setFeed(prevFeed => prevFeed.map(brew => 
-        brew.id === brewId ? { ...brew, has_saved: data.hasSaved } : brew
-      ));
-    } catch (err) {
-      console.error("Save error:", err.message);
-    }
+      setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, has_saved: data.hasSaved } : brew));
+    } catch (err) { console.error("Save error:", err.message); }
   };
 
   const toggleComments = async (brewId) => {
@@ -157,14 +164,10 @@ const Social = () => {
       setActiveCommentId(brewId);
       try {
         const token = localStorage.getItem('token');
-        const response = await fetch(`/api/social/brews/${brewId}/comments`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const response = await fetch(`/api/social/brews/${brewId}/comments`, { headers: { 'Authorization': `Bearer ${token}` } });
         const data = await response.json();
         setComments(data);
-      } catch (err) {
-        console.error("Error fetching comments:", err);
-      }
+      } catch (err) { console.error("Error fetching comments:", err); }
     }
   };
 
@@ -177,76 +180,45 @@ const Social = () => {
         headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
         body: JSON.stringify({ comment_text: commentText })
       });
-
       if (response.ok) {
         setCommentText("");
-        const updatedResponse = await fetch(`/api/social/brews/${brewId}/comments`, {
-          headers: { 'Authorization': `Bearer ${token}` }
-        });
+        const updatedResponse = await fetch(`/api/social/brews/${brewId}/comments`, { headers: { 'Authorization': `Bearer ${token}` } });
         const updatedData = await updatedResponse.json();
         setComments(updatedData);
-
-        setFeed(prevFeed => prevFeed.map(brew => 
-          brew.id === brewId ? { ...brew, comment_count: parseInt(brew.comment_count) + 1 } : brew
-        ));
+        setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, comment_count: parseInt(brew.comment_count) + 1 } : brew));
       }
-    } catch (err) {
-      console.error("Comment post error:", err);
-    }
+    } catch (err) { console.error("Comment post error:", err); }
   };
 
   const handleCommentLike = async (commentId) => {
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/social/comments/${commentId}/like`, {
-        method: 'POST',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
+      const response = await fetch(`/api/social/comments/${commentId}/like`, { method: 'POST', headers: { 'Authorization': `Bearer ${token}` } });
       if (!response.ok) throw new Error('Failed to toggle comment like.');
       const data = await response.json();
-
-      setComments(prevComments => prevComments.map(c => 
-        c.id === commentId ? { ...c, has_liked: data.hasLiked, like_count: data.like_count } : c
-      ));
-    } catch (err) {
-      console.error("Comment like error:", err.message);
-    }
+      setComments(prevComments => prevComments.map(c => c.id === commentId ? { ...c, has_liked: data.hasLiked, like_count: data.like_count } : c));
+    } catch (err) { console.error("Comment like error:", err.message); }
   };
 
   const handleDeletePost = async (brewId) => {
     if (!window.confirm("Are you sure you want to permanently delete this brew from the community?")) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/brews/${brewId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
+      const response = await fetch(`/api/brews/${brewId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
       if (!response.ok) throw new Error('Failed to delete post.');
       setFeed(prevFeed => prevFeed.filter(brew => brew.id !== brewId));
-    } catch (err) {
-      console.error("Post delete error:", err.message);
-    }
+    } catch (err) { console.error("Post delete error:", err.message); }
   };
 
   const handleDeleteComment = async (commentId, brewId) => {
     if (!window.confirm("Are you sure you want to delete this comment?")) return;
     try {
       const token = localStorage.getItem('token');
-      const response = await fetch(`/api/social/comments/${commentId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-
+      const response = await fetch(`/api/social/comments/${commentId}`, { method: 'DELETE', headers: { 'Authorization': `Bearer ${token}` } });
       if (!response.ok) throw new Error('Failed to delete comment.');
       setComments(prevComments => prevComments.filter(c => c.id !== commentId));
-      setFeed(prevFeed => prevFeed.map(brew => 
-        brew.id === brewId ? { ...brew, comment_count: Math.max(0, parseInt(brew.comment_count) - 1) } : brew
-      ));
-    } catch (err) {
-      console.error("Comment delete error:", err.message);
-    }
+      setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, comment_count: Math.max(0, parseInt(brew.comment_count) - 1) } : brew));
+    } catch (err) { console.error("Comment delete error:", err.message); }
   };
   
   if (loading && page === 1) return <div className="timeline-message">Loading the brew feed...</div>;
@@ -255,17 +227,29 @@ const Social = () => {
   return (
     <div className="social-container">
       
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '10px' }}>
-        <h2 className="timeline-header" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>Community Brews</h2>
-        <button 
-          onClick={() => setShowPostForm(!showPostForm)}
-          style={{ background: showPostForm ? '#21262d' : '#238636', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
-        >
-          {showPostForm ? 'Cancel' : '📝 Share a Brew'}
-        </button>
-      </div>
+      {viewingProfile ? (
+        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
+          <button 
+            onClick={closeProfile} 
+            style={{ background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
+          >
+            ⬅️ Back to Feed
+          </button>
+          <h2 className="timeline-header" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>@{viewingProfile}'s Brews</h2>
+        </div>
+      ) : (
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '10px' }}>
+          <h2 className="timeline-header" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>Community Brews</h2>
+          <button 
+            onClick={() => setShowPostForm(!showPostForm)}
+            style={{ background: showPostForm ? '#21262d' : '#238636', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}
+          >
+            {showPostForm ? 'Cancel' : '📝 Share a Brew'}
+          </button>
+        </div>
+      )}
 
-      {showPostForm && (
+      {showPostForm && !viewingProfile && (
         <div className="brew-card" style={{ border: '1px solid #2ea043', marginBottom: '2rem' }}>
           <form onSubmit={handlePostSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <textarea
@@ -275,41 +259,18 @@ const Social = () => {
               required
               style={{ boxSizing: 'border-box', background: '#0d1117', border: '1px solid #30363d', padding: '10px', color: '#c9d1d9', borderRadius: '6px', minHeight: '60px', width: '100%', resize: 'vertical' }}
             />
-
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <input
-                type="text" placeholder="Roastery (e.g. Onyx)" value={postForm.roastery}
-                onChange={(e) => setPostForm({...postForm, roastery: e.target.value})}
-                style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }}
-              />
-              <input
-                type="text" placeholder="Region (e.g. Ethiopia)" value={postForm.region} required
-                onChange={(e) => setPostForm({...postForm, region: e.target.value})}
-                style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }}
-              />
-              <input
-                type="text" placeholder="Amount (e.g. 16 oz)" value={postForm.coffee_amount} required
-                onChange={(e) => setPostForm({...postForm, coffee_amount: e.target.value})}
-                style={{ width: '100px', background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}
-              />
+              <input type="text" placeholder="Roastery (e.g. Onyx)" value={postForm.roastery} onChange={(e) => setPostForm({...postForm, roastery: e.target.value})} style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }} />
+              <input type="text" placeholder="Region (e.g. Ethiopia)" value={postForm.region} required onChange={(e) => setPostForm({...postForm, region: e.target.value})} style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }} />
+              <input type="text" placeholder="Amount (e.g. 16 oz)" value={postForm.coffee_amount} required onChange={(e) => setPostForm({...postForm, coffee_amount: e.target.value})} style={{ width: '100px', background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }} />
             </div>
-
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
-              <select
-                value={postForm.roast_type}
-                onChange={(e) => setPostForm({...postForm, roast_type: e.target.value})}
-                style={{ background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}
-              >
+              <select value={postForm.roast_type} onChange={(e) => setPostForm({...postForm, roast_type: e.target.value})} style={{ background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}>
                 <option value="Light">Light Roast</option>
                 <option value="Medium">Medium Roast</option>
                 <option value="Dark">Dark Roast</option>
               </select>
-
-              <select
-                value={postForm.brew_method}
-                onChange={(e) => setPostForm({...postForm, brew_method: e.target.value})}
-                style={{ background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}
-              >
+              <select value={postForm.brew_method} onChange={(e) => setPostForm({...postForm, brew_method: e.target.value})} style={{ background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}>
                 <option value="Drip Brew">Drip Brew</option>
                 <option value="Pour Over">Pour Over</option>
                 <option value="Espresso">Espresso</option>
@@ -318,13 +279,14 @@ const Social = () => {
                 <option value="Percolator">Percolator</option>
                 <option value="Cold Brew">Cold Brew</option>
               </select>
-
-              <button type="submit" style={{ marginLeft: 'auto', background: '#2ea043', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                Post to Feed
-              </button>
+              <button type="submit" style={{ marginLeft: 'auto', background: '#2ea043', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Post to Feed</button>
             </div>
           </form>
         </div>
+      )}
+
+      {feed.length === 0 && !loading && (
+        <p style={{ textAlign: 'center', color: '#8b949e', marginTop: '30px' }}>No brews found.</p>
       )}
 
       <div className="timeline-feed">
@@ -332,7 +294,14 @@ const Social = () => {
           <div key={brew.id} className="brew-card">
             
             <div className="brew-card-header">
-              <span className="author">@{brew.author}</span>
+              <span 
+                className="author" 
+                onClick={() => loadProfile(brew.author)}
+                style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '4px' }}
+                title={`View @${brew.author}'s profile`}
+              >
+                @{brew.author}
+              </span>
               <span className="timestamp">{new Date(brew.created_at).toLocaleDateString()}</span>
             </div>
             
@@ -369,7 +338,17 @@ const Social = () => {
                   {comments.length > 0 ? (
                     comments.map((c) => (
                       <div key={c.id} className="comment-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                        <div><span className="author">@{c.username}</span> <span className="comment-text"> {c.comment_text}</span></div>
+                        <div>
+                          {/* Comments are also clickable! */}
+                          <span 
+                            className="author" 
+                            onClick={() => loadProfile(c.username)}
+                            style={{ cursor: 'pointer', textDecoration: 'underline' }}
+                          >
+                            @{c.username}
+                          </span> 
+                          <span className="comment-text"> {c.comment_text}</span>
+                        </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button className={`action-btn ${c.has_liked ? 'active-like' : ''}`} onClick={() => handleCommentLike(c.id)} style={{ fontSize: '0.85rem', padding: '0 8px' }}>
                             🤍 {c.like_count || 0}
@@ -395,11 +374,10 @@ const Social = () => {
           </div>
         ))}
 
-        {/* --- Pagination --- */}
         {hasMore && feed.length > 0 && (
           <div style={{ textAlign: 'center', margin: '30px 0' }}>
             <button 
-              onClick={() => setPage(prev => prev + 1)}
+              onClick={loadMore}
               style={{ padding: '10px 20px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}
             >
               Load More Brews 👇
@@ -409,7 +387,7 @@ const Social = () => {
         
         {!hasMore && feed.length > 0 && (
           <p style={{ textAlign: 'center', color: '#8b949e', marginTop: '30px', fontStyle: 'italic' }}>
-            You've reached the end of the feed!
+            {viewingProfile ? `That's all of @${viewingProfile}'s public brews!` : "You've reached the end of the feed!"}
           </p>
         )}
 

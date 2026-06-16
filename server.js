@@ -258,6 +258,37 @@ app.get('/api/social/feed', authenticateToken, async (req, res) => {
   }
 });
 
+// Get a specific user's public feed
+app.get('/api/social/users/:username/brews', authenticateToken, async (req, res) => {
+  const { username } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, 
+        b.blurb, b.created_at,
+        u.username AS author,
+        (SELECT COUNT(*) FROM likes WHERE brew_id = b.id) AS like_count,
+        (SELECT COUNT(*) FROM comments WHERE brew_id = b.id) AS comment_count,
+        EXISTS(SELECT 1 FROM likes WHERE brew_id = b.id AND user_id = $1) AS has_liked,
+        EXISTS(SELECT 1 FROM saved_recipes WHERE brew_id = b.id AND user_id = $1) AS has_saved
+      FROM brews b
+      JOIN users u ON b.user_id = u.id
+      WHERE b.is_public = true AND u.username = $2
+      ORDER BY b.created_at DESC
+      LIMIT $3 OFFSET $4
+    `, [req.user.id, username, limit, offset]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching user profile:", err.message);
+    res.status(500).json({ error: "Failed to load user profile." });
+  }
+});
+
 // Toggle Like
 app.post('/api/social/brews/:id/like', authenticateToken, async (req, res) => {
   const brewId = req.params.id;
