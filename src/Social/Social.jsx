@@ -184,11 +184,23 @@ const Social = () => {
   return (
     <div className="social-container">
       {viewingProfile ? (
-        <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
-          <button onClick={closeProfile} style={{ background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>⬅️ Back to Feed</button>
-          <h2 className="timeline-header" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>@{viewingProfile}'s Brews</h2>
+        <div style={{ 
+          display: 'flex', 
+          alignItems: 'center', 
+          gap: '10px', 
+          marginBottom: '2rem', 
+          borderBottom: '1px solid #30363d', 
+          paddingBottom: '15px',
+          flexWrap: 'wrap'    
+        }}>
+          <button onClick={closeProfile} style={{ background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0 }}>⬅️ Back</button>
+          
+          <h2 className="timeline-header" style={{ borderBottom: 'none', margin: 0, padding: 0, flex: '1', minWidth: 0, fontSize: '1.25rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            @{viewingProfile}'s Brews
+          </h2>
+          
           {currentUser && currentUser.toLowerCase() !== viewingProfile.toLowerCase() && (
-            <button onClick={handleToggleFollow} style={{ marginLeft: 'auto', background: isFollowingProfile ? '#21262d' : '#c9d1d9', color: isFollowingProfile ? '#c9d1d9' : '#0d1117', border: isFollowingProfile ? '1px solid #30363d' : 'none', padding: '6px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold' }}>
+            <button onClick={handleToggleFollow} style={{ marginLeft: 'auto', background: isFollowingProfile ? '#21262d' : '#c9d1d9', color: isFollowingProfile ? '#c9d1d9' : '#0d1117', border: isFollowingProfile ? '1px solid #30363d' : 'none', padding: '6px 16px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', flexShrink: 0 }}>
               {isFollowingProfile ? 'Unfollow' : 'Follow'}
             </button>
           )}
@@ -225,14 +237,14 @@ const Social = () => {
             key={brew.id} 
             brew={brew} 
             currentUser={currentUser} 
-            isAdmin={isAdmin} 
+            isAdmin={false} 
             loadProfile={loadProfile} 
             handleLike={handleLike} 
             handleSave={handleSave} 
             handlePin={handlePin} 
             handleDeletePost={handleDeletePost} 
             getLiquidOutput={getLiquidOutput} 
-            isProfileView={!!viewingProfile}
+            isProfileView={!!viewingProfile} 
           />
         ))}
 
