@@ -29,7 +29,7 @@ CREATE TABLE brews (
   grind_size VARCHAR(50), 
   blurb TEXT,
   is_public BOOLEAN DEFAULT false,
-  is_pinned BOOLEAN DEFAULT false, -- ✅ FIXED: Properly declared as a standard column!
+  is_pinned BOOLEAN DEFAULT false,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
