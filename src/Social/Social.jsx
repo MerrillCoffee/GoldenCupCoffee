@@ -11,8 +11,7 @@ const Social = () => {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   
-  // Feed Types & Profile Viewing
-  const [feedFilter, setFeedFilter] = useState('global'); // 'global' or 'following'
+  const [feedFilter, setFeedFilter] = useState('global'); 
   const [viewingProfile, setViewingProfile] = useState(null);
   const [isFollowingProfile, setIsFollowingProfile] = useState(false);
 
@@ -23,25 +22,27 @@ const Social = () => {
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [showPostForm, setShowPostForm] = useState(false);
+
   const [postForm, setPostForm] = useState({
-    roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", blurb: ""
+    roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", water_temp: "", grind_size: "Medium", blurb: ""
   });
 
   let currentUser = null;
+  let isAdmin = false; 
   try {
     const token = localStorage.getItem('token');
     if (token) {
-      currentUser = JSON.parse(atob(token.split('.')[1])).username;
+      const decoded = JSON.parse(atob(token.split('.')[1]));
+      currentUser = decoded.username;
+      isAdmin = decoded.is_admin === true; 
     }
   } catch (e) {
     console.error("Could not parse token");
   }
 
-  // Fetch Feed
   const fetchFeed = async (pageNumber = 1, profileUser = viewingProfile, currentFilter = feedFilter) => {
     try {
       const token = localStorage.getItem('token');
-      
       const endpoint = profileUser 
         ? `/api/social/users/${profileUser}/brews?page=${pageNumber}`
         : `/api/social/feed?page=${pageNumber}&filter=${currentFilter}`;
@@ -67,7 +68,6 @@ const Social = () => {
     }
   };
 
-  // Run a fresh fetch when the user toggles between Global and Following
   useEffect(() => {
     if (!viewingProfile) {
       setPage(1);
@@ -75,7 +75,6 @@ const Social = () => {
     }
   }, [feedFilter]);
 
-  // Profile Navigation Handlers
   const loadProfile = async (username) => {
     setViewingProfile(username);
     setPage(1);
@@ -109,7 +108,6 @@ const Social = () => {
       });
       const data = await res.json();
       setIsFollowingProfile(data.isFollowing);
-
     } catch (e) { console.error("Error toggling follow"); }
   };
 
@@ -121,7 +119,7 @@ const Social = () => {
 
   const getLiquidOutput = (coffeeAmountStr, brewMethod) => {
     const str = String(coffeeAmountStr).toLowerCase();
-    if (str.includes('oz')) return str;
+    if (str.includes('oz') || str.includes('shot')) return str;
     const grams = parseFloat(str);
     if (isNaN(grams)) return coffeeAmountStr; 
     const ratio = METHOD_RATIOS[brewMethod] || 16.67;
@@ -144,7 +142,7 @@ const Social = () => {
       });
 
       if (response.ok) {
-        setPostForm({ roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", blurb: "" });
+        setPostForm({ roastery: "", region: "", coffee_amount: "16 oz", roast_type: "Medium", brew_method: "Pour Over", water_temp: "", grind_size: "Medium", blurb: "" });
         setShowPostForm(false);
         setPage(1);
         fetchFeed(1, viewingProfile, feedFilter); 
@@ -172,6 +170,38 @@ const Social = () => {
       const data = await response.json();
       setFeed(prevFeed => prevFeed.map(brew => brew.id === brewId ? { ...brew, has_saved: data.hasSaved } : brew));
     } catch (err) { console.error("Save error:", err.message); }
+  };
+
+  // --- Handle Pinning ---
+  const handlePin = async (brewId) => {
+    try {
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/social/brews/${brewId}/pin`, { 
+        method: 'POST', 
+        headers: { 'Authorization': `Bearer ${token}` } 
+      });
+      const data = await response.json();
+      
+      if (!response.ok) {
+        alert(data.error || "Failed to pin post.");
+        return;
+      }
+
+      setFeed(prevFeed => {
+        const updatedFeed = prevFeed.map(brew => brew.id === brewId ? { ...brew, is_pinned: data.isPinned } : brew);
+        
+        if (viewingProfile) {
+           return updatedFeed.sort((a, b) => {
+              if (a.is_pinned && !b.is_pinned) return -1;
+              if (!a.is_pinned && b.is_pinned) return 1;
+              return new Date(b.created_at) - new Date(a.created_at);
+           });
+        }
+        return updatedFeed;
+      });
+    } catch (err) { 
+      console.error("Pin error:", err.message); 
+    }
   };
 
   const toggleComments = async (brewId) => {
@@ -243,7 +273,6 @@ const Social = () => {
   return (
     <div className="social-container">
       
-      {/* Profile Header View vs Global Header View */}
       {viewingProfile ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '15px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
           <button onClick={closeProfile} style={{ background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', padding: '6px 12px', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>
@@ -251,7 +280,6 @@ const Social = () => {
           </button>
           <h2 className="timeline-header" style={{ borderBottom: 'none', margin: 0, padding: 0 }}>@{viewingProfile}'s Brews</h2>
           
-          {/* Dynamic Follow Button (Only if you aren't viewing yourself) */}
           {currentUser && currentUser.toLowerCase() !== viewingProfile.toLowerCase() && (
             <button 
               onClick={handleToggleFollow}
@@ -276,7 +304,6 @@ const Social = () => {
         </div>
       )}
 
-      {/* Toggles (Hidden when viewing a specific profile) */}
       {!viewingProfile && (
         <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
           <button 
@@ -304,22 +331,24 @@ const Social = () => {
         </div>
       )}
 
-      {/* Post Creation Form */}
       {showPostForm && !viewingProfile && (
         <div className="brew-card" style={{ border: '1px solid #2ea043', marginBottom: '2rem' }}>
           <form onSubmit={handlePostSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '12px' }}>
             <textarea placeholder="What's brewing? Share your thoughts..." value={postForm.blurb} onChange={(e) => setPostForm({...postForm, blurb: e.target.value})} required style={{ boxSizing: 'border-box', background: '#0d1117', border: '1px solid #30363d', padding: '10px', color: '#c9d1d9', borderRadius: '6px', minHeight: '60px', width: '100%', resize: 'vertical' }} />
+            
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <input type="text" placeholder="Roastery (e.g. Onyx)" value={postForm.roastery} onChange={(e) => setPostForm({...postForm, roastery: e.target.value})} style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }} />
               <input type="text" placeholder="Region (e.g. Ethiopia)" value={postForm.region} required onChange={(e) => setPostForm({...postForm, region: e.target.value})} style={{ flex: 1, background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px', minWidth: '120px' }} />
               <input type="text" placeholder="Amount (e.g. 16 oz)" value={postForm.coffee_amount} required onChange={(e) => setPostForm({...postForm, coffee_amount: e.target.value})} style={{ width: '100px', background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }} />
             </div>
+
             <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
               <select value={postForm.roast_type} onChange={(e) => setPostForm({...postForm, roast_type: e.target.value})} style={{ background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}>
                 <option value="Light">Light Roast</option>
                 <option value="Medium">Medium Roast</option>
                 <option value="Dark">Dark Roast</option>
               </select>
+
               <select value={postForm.brew_method} onChange={(e) => setPostForm({...postForm, brew_method: e.target.value})} style={{ background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}>
                 <option value="Drip Brew">Drip Brew</option>
                 <option value="Pour Over">Pour Over</option>
@@ -329,13 +358,25 @@ const Social = () => {
                 <option value="Percolator">Percolator</option>
                 <option value="Cold Brew">Cold Brew</option>
               </select>
+
+              <select value={postForm.grind_size} onChange={(e) => setPostForm({...postForm, grind_size: e.target.value})} style={{ background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }}>
+                <option value="Extra Fine">Extra Fine</option>
+                <option value="Fine">Fine</option>
+                <option value="Medium-Fine">Medium-Fine</option>
+                <option value="Medium">Medium</option>
+                <option value="Medium-Coarse">Medium-Coarse</option>
+                <option value="Coarse">Coarse</option>
+                <option value="Extra Coarse">Extra Coarse</option>
+              </select>
+
+              <input type="text" placeholder="Temp (e.g. 200°F)" value={postForm.water_temp} onChange={(e) => setPostForm({...postForm, water_temp: e.target.value})} style={{ width: '100px', background: '#0d1117', border: '1px solid #30363d', padding: '8px', color: '#c9d1d9', borderRadius: '4px' }} />
+
               <button type="submit" style={{ marginLeft: 'auto', background: '#2ea043', color: '#fff', border: 'none', padding: '8px 20px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>Post to Feed</button>
             </div>
           </form>
         </div>
       )}
 
-      {/* Empty State Notification */}
       {feed.length === 0 && !loading && (
         <p style={{ textAlign: 'center', color: '#8b949e', marginTop: '30px' }}>
           {feedFilter === 'following' && !viewingProfile 
@@ -346,30 +387,50 @@ const Social = () => {
 
       <div className="timeline-feed">
         {feed.map((brew) => (
-          <div key={brew.id} className="brew-card">
+          <div key={brew.id} className="brew-card" style={brew.is_pinned ? { border: '1px solid #d2a8ff' } : {}}>
             
-            <div className="brew-card-header">
-              <span className="author" onClick={() => loadProfile(brew.author)} style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '4px' }} title={`View @${brew.author}'s profile`}>
-                @{brew.author}
-              </span>
-              <span className="timestamp">{new Date(brew.created_at).toLocaleDateString()}</span>
+            <div className="brew-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                {brew.is_pinned && <div style={{ color: '#d2a8ff', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '8px' }}>📌 Pinned Brew</div>}
+                
+                <span className="author" onClick={() => loadProfile(brew.author)} style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '4px' }} title={`View @${brew.author}'s profile`}>
+                  @{brew.author}
+                </span>
+              </div>
+              
+              <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+                {currentUser && currentUser.toLowerCase() === brew.author.toLowerCase() && (
+                  <button 
+                    onClick={() => handlePin(brew.id)} 
+                    style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: brew.is_pinned ? '#d2a8ff' : '#8b949e', fontSize: '0.85rem', fontWeight: 'bold' }}
+                  >
+                    📌 {brew.is_pinned ? 'Unpin' : 'Pin'}
+                  </button>
+                )}
+                <span className="timestamp">{new Date(brew.created_at).toLocaleDateString()}</span>
+              </div>
             </div>
             
             <div className="brew-card-body">
               {brew.blurb && <p className="blurb">{brew.blurb}</p>}
+              
               <div className="brew-stats">
                 {brew.roastery && <span className="stat-badge">🏭 {brew.roastery}</span>}
                 <span className="stat-badge">{brew.roast_type} Roast</span>
                 <span className="stat-badge">{brew.brew_method}</span>
                 <span className="stat-badge">{getLiquidOutput(brew.coffee_amount, brew.brew_method)} - {brew.region}</span>
+                {brew.grind_size && <span className="stat-badge">⚙️ {brew.grind_size} Grind</span>}
+                {brew.water_temp && <span className="stat-badge">🌡️ {brew.water_temp.replace(/Â/g, ' ')}</span>}
               </div>
+
             </div>
             
             <div className="brew-card-actions">
               <button className={`action-btn ${brew.has_liked ? 'active-like' : ''}`} onClick={() => handleLike(brew.id)}>🤍 {brew.like_count}</button>
               <button className="action-btn" onClick={() => toggleComments(brew.id)}>💬 {brew.comment_count}</button>
               <button className={`action-btn ${brew.has_saved ? 'active-save' : ''}`} onClick={() => handleSave(brew.id)}>🔖 {brew.has_saved ? 'Saved' : 'Save'}</button>
-              {currentUser && currentUser.toLowerCase() === brew.author.toLowerCase() && (
+              
+              {currentUser && (currentUser.toLowerCase() === brew.author.toLowerCase() || isAdmin) && (
                 <button onClick={() => handleDeletePost(brew.id)} style={{ marginLeft: 'auto', background: 'transparent', border: 'none', color: '#f85149', cursor: 'pointer', fontSize: '0.9rem', display: 'flex', alignItems: 'center', gap: '4px' }}>🗑️ Delete</button>
               )}
             </div>
@@ -386,7 +447,8 @@ const Social = () => {
                         </div>
                         <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
                           <button className={`action-btn ${c.has_liked ? 'active-like' : ''}`} onClick={() => handleCommentLike(c.id)} style={{ fontSize: '0.85rem', padding: '0 8px' }}>🤍 {c.like_count || 0}</button>
-                          {currentUser && currentUser.toLowerCase() === c.username.toLowerCase() && (
+                          
+                          {currentUser && (currentUser.toLowerCase() === c.username.toLowerCase() || isAdmin) && (
                             <button onClick={() => handleDeleteComment(c.id, brew.id)} style={{ fontSize: '0.85rem', padding: '0 8px', color: '#f85149', background: 'transparent', border: 'none', cursor: 'pointer' }}>🗑️</button>
                           )}
                         </div>
@@ -405,7 +467,6 @@ const Social = () => {
           </div>
         ))}
 
-        {/* Pagination Controls */}
         {hasMore && feed.length > 0 && (
           <div style={{ textAlign: 'center', margin: '30px 0' }}>
             <button onClick={loadMore} style={{ padding: '10px 20px', background: '#21262d', color: '#c9d1d9', border: '1px solid #30363d', borderRadius: '6px', cursor: 'pointer', fontWeight: 'bold' }}>

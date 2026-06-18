@@ -17,13 +17,12 @@ app.use(cors());
 app.use(express.json());
 
 // --- PSQL pool ---
-// Using env variables with fallbacks to your local configuration
 const pool = new Pool({
-  user: process.env.DB_USER || 'maxyf',
-  password: process.env.DB_PASSWORD || '1237Kittles@',
-  host: process.env.DB_HOST || 'localhost',
-  port: process.env.DB_PORT || 5432,
-  database: process.env.DB_NAME || 'golden_cup',
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  host: process.env.DB_HOST,
+  port: process.env.DB_PORT,
+  database: process.env.DB_NAME,
 });
 
 // --- JWT Middleware ---
@@ -31,80 +30,63 @@ const authenticateToken = (req, res, next) => {
   const authHeader = req.headers['authorization'];
   const token = authHeader && authHeader.split(' ')[1];
 
-  if (!token) {
-    return res.status(401).json({ error: "Access denied. No token provided." });
-  }
+  if (!token) return res.status(401).json({ error: "Access denied. No token provided." });
 
   jwt.verify(token, JWT_SECRET, (err, user) => {
-    if (err) {
-      return res.status(403).json({ error: "Invalid or expired session token." });
-    }
+    if (err) return res.status(403).json({ error: "Invalid or expired session token." });
     req.user = user;
     next();
   });
 };
 
-//Auth Routes
+// ==========================================
+// AUTHENTICATION ROUTES
+// ==========================================
 
-// Register
 app.post('/api/auth/register', async (req, res) => {
   const { username, password } = req.body;
-
-  if (!username || !password) {
-    return res.status(400).json({ error: "Username and password are required." });
-  }
+  if (!username || !password) return res.status(400).json({ error: "Username and password are required." });
 
   try {
     const userCheck = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    if (userCheck.rows.length > 0) {
-      return res.status(400).json({ error: "Username is already taken." });
-    }
+    if (userCheck.rows.length > 0) return res.status(400).json({ error: "Username is already taken." });
 
-    const saltRounds = 10;
-    const hashedPassword = await bcrypt.hash(password, saltRounds);
-
+    const hashedPassword = await bcrypt.hash(password, 10);
     const newUser = await pool.query(
-      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username',
+      'INSERT INTO users (username, password) VALUES ($1, $2) RETURNING id, username, is_admin',
       [username, hashedPassword]
     );
 
-    const token = jwt.sign({ id: newUser.rows[0].id, username: newUser.rows[0].username }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: newUser.rows[0].id, username: newUser.rows[0].username, is_admin: newUser.rows[0].is_admin }, JWT_SECRET, { expiresIn: '24h' });
     res.status(201).json({ token, username: newUser.rows[0].username });
-
   } catch (err) {
     console.error("Registration error:", err.message);
     res.status(500).json({ error: "Internal server error during registration." });
   }
 });
 
-// Login
 app.post('/api/auth/login', async (req, res) => {
   const { username, password } = req.body;
-
   try {
     const result = await pool.query('SELECT * FROM users WHERE username = $1', [username]);
-    if (result.rows.length === 0) {
-      return res.status(401).json({ error: "Invalid username or password." });
-    }
+    if (result.rows.length === 0) return res.status(401).json({ error: "Invalid username or password." });
 
     const user = result.rows[0];
     const match = await bcrypt.compare(password, user.password);
-    if (!match) {
-      return res.status(401).json({ error: "Invalid username or password." });
-    }
+    if (!match) return res.status(401).json({ error: "Invalid username or password." });
 
-    const token = jwt.sign({ id: user.id, username: user.username }, JWT_SECRET, { expiresIn: '24h' });
+    const token = jwt.sign({ id: user.id, username: user.username, is_admin: user.is_admin }, JWT_SECRET, { expiresIn: '24h' });
     res.json({ token, username: user.username });
-
   } catch (err) {
     console.error("Login error:", err.message);
     res.status(500).json({ error: "Internal server error during login." });
   }
 });
 
-// Brew Log Routes
+// ==========================================
+// PERSONAL BREW LOG ROUTES
+// ==========================================
 
-// Get History Logs
 app.get('/api/brews', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const limit = 10;
@@ -113,7 +95,7 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at, b.is_public,
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.water_temp, b.grind_size, b.created_at, b.is_public, b.is_pinned,
         u.username AS author,
         false AS is_saved_recipe
       FROM brews b
@@ -123,7 +105,7 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
       UNION ALL
       
       SELECT 
-        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.created_at, b.is_public,
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.water_temp, b.grind_size, b.created_at, b.is_public, b.is_pinned,
         u.username AS author,
         true AS is_saved_recipe
       FROM brews b
@@ -142,9 +124,8 @@ app.get('/api/brews', authenticateToken, async (req, res) => {
   }
 });
 
-// Create a new log
 app.post('/api/brews', authenticateToken, async (req, res) => {
-  const { roastery, region, coffee_amount, roast_type, brew_method, blurb, is_public } = req.body;
+  const { roastery, region, coffee_amount, roast_type, brew_method, water_temp, grind_size, blurb, is_public } = req.body;
 
   if (!region || !coffee_amount || !roast_type || !brew_method) {
     return res.status(400).json({ error: "Missing required fields to complete log." });
@@ -152,8 +133,8 @@ app.post('/api/brews', authenticateToken, async (req, res) => {
 
   try {
     const result = await pool.query(
-      'INSERT INTO brews (user_id, roastery, region, coffee_amount, roast_type, brew_method, blurb, is_public) VALUES ($1, $2, $3, $4, $5, $6, $7, $8) RETURNING *',
-      [req.user.id, roastery || 'Unknown Roastery', region, coffee_amount, roast_type, brew_method, blurb || null, is_public || false]
+      'INSERT INTO brews (user_id, roastery, region, coffee_amount, roast_type, brew_method, water_temp, grind_size, blurb, is_public) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10) RETURNING *',
+      [req.user.id, roastery || 'Unknown Roastery', region, coffee_amount, roast_type, brew_method, water_temp || null, grind_size || null, blurb || null, is_public || false]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -162,21 +143,17 @@ app.post('/api/brews', authenticateToken, async (req, res) => {
   }
 });
 
-// Update specific log
 app.put('/api/brews/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-  const { roastery, region, roast_type } = req.body;
+  const { roastery, region, roast_type, water_temp, grind_size } = req.body;
 
   try {
     const result = await pool.query(
-      'UPDATE brews SET roastery = $1, region = $2, roast_type = $3 WHERE id = $4 AND user_id = $5 RETURNING *',
-      [roastery, region, roast_type, id, req.user.id]
+      'UPDATE brews SET roastery = $1, region = $2, roast_type = $3, water_temp = $4, grind_size = $5 WHERE id = $6 AND user_id = $7 RETURNING *',
+      [roastery, region, roast_type, water_temp, grind_size, id, req.user.id]
     );
 
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Brew log not found or unauthorized to edit." });
-    }
-
+    if (result.rowCount === 0) return res.status(404).json({ error: "Brew log not found or unauthorized to edit." });
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Error updating brew:", err.message);
@@ -184,20 +161,14 @@ app.put('/api/brews/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Delete specific logs
 app.delete('/api/brews/:id', authenticateToken, async (req, res) => {
   const { id } = req.params;
-
   try {
     const result = await pool.query(
-      'DELETE FROM brews WHERE id = $1 AND user_id = $2 RETURNING *',
-      [id, req.user.id]
+      'DELETE FROM brews WHERE id = $1 AND (user_id = $2 OR $3 = true) RETURNING *', 
+      [id, req.user.id, req.user.is_admin === true]
     );
-
-    if (result.rowCount === 0) {
-      return res.status(403).json({ error: "Unauthorized: You can only delete your own posts." });
-    }
-
+    if (result.rowCount === 0) return res.status(403).json({ error: "Unauthorized: You can only delete your own posts." });
     res.json({ message: "Brew log successfully deleted!", deletedLog: result.rows[0] });
   } catch (err) {
     console.error("Error deleting brew:", err.message);
@@ -205,21 +176,12 @@ app.delete('/api/brews/:id', authenticateToken, async (req, res) => {
   }
 });
 
-// Share a private log to the social feed
 app.put('/api/brews/:id/share', authenticateToken, async (req, res) => {
   const { id } = req.params;
   const { blurb } = req.body;
-
   try {
-    const result = await pool.query(
-      'UPDATE brews SET is_public = true, blurb = $1 WHERE id = $2 AND user_id = $3 RETURNING *',
-      [blurb, id, req.user.id]
-    );
-
-    if (result.rowCount === 0) {
-      return res.status(404).json({ error: "Brew log not found or unauthorized." });
-    }
-
+    const result = await pool.query('UPDATE brews SET is_public = true, blurb = $1 WHERE id = $2 AND user_id = $3 RETURNING *', [blurb, id, req.user.id]);
+    if (result.rowCount === 0) return res.status(404).json({ error: "Brew log not found or unauthorized." });
     res.json(result.rows[0]);
   } catch (err) {
     console.error("Error sharing brew:", err.message);
@@ -227,9 +189,10 @@ app.put('/api/brews/:id/share', authenticateToken, async (req, res) => {
   }
 });
 
-//Social Feed Interactions
+// ==========================================
+// SOCIAL & COMMUNITY ROUTES
+// ==========================================
 
-// Get Main Feed
 app.get('/api/social/feed', authenticateToken, async (req, res) => {
   const page = parseInt(req.query.page) || 1;
   const filter = req.query.filter || 'global';
@@ -247,7 +210,7 @@ app.get('/api/social/feed', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
       SELECT 
-        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, 
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.water_temp, b.grind_size, b.is_pinned,
         b.blurb, b.created_at,
         u.username AS author,
         (SELECT COUNT(*) FROM likes WHERE brew_id = b.id) AS like_count,
@@ -269,10 +232,69 @@ app.get('/api/social/feed', authenticateToken, async (req, res) => {
   }
 });
 
-// Toggle Follow a User
+app.get('/api/social/users/:username/brews', authenticateToken, async (req, res) => {
+  const { username } = req.params;
+  const page = parseInt(req.query.page) || 1;
+  const limit = 10;
+  const offset = (page - 1) * limit;
+
+  try {
+    const result = await pool.query(`
+      SELECT 
+        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, b.water_temp, b.grind_size, b.is_pinned,
+        b.blurb, b.created_at,
+        u.username AS author,
+        (SELECT COUNT(*) FROM likes WHERE brew_id = b.id) AS like_count,
+        (SELECT COUNT(*) FROM comments WHERE brew_id = b.id) AS comment_count,
+        EXISTS(SELECT 1 FROM likes WHERE brew_id = b.id AND user_id = $1) AS has_liked,
+        EXISTS(SELECT 1 FROM saved_recipes WHERE brew_id = b.id AND user_id = $1) AS has_saved
+      FROM brews b
+      JOIN users u ON b.user_id = u.id
+      WHERE b.is_public = true AND u.username = $2
+      ORDER BY b.is_pinned DESC, b.created_at DESC  /* FIX: Sort by pins first, then date */
+      LIMIT $3 OFFSET $4
+    `, [req.user.id, username, limit, offset]);
+
+    res.json(result.rows);
+  } catch (err) {
+    console.error("Error fetching user profile:", err.message);
+    res.status(500).json({ error: "Failed to load user profile." });
+  }
+});
+
+// --- Toggle Pin Status ---
+app.post('/api/social/brews/:id/pin', authenticateToken, async (req, res) => {
+  const brewId = req.params.id;
+  const userId = req.user.id;
+
+  try {
+    const brewCheck = await pool.query('SELECT is_pinned FROM brews WHERE id = $1 AND user_id = $2', [brewId, userId]);
+    
+    if (brewCheck.rowCount === 0) return res.status(403).json({ error: "Unauthorized or post not found." });
+    
+    const isCurrentlyPinned = brewCheck.rows[0].is_pinned;
+
+    if (!isCurrentlyPinned) {
+      const pinCount = await pool.query('SELECT COUNT(*) FROM brews WHERE user_id = $1 AND is_pinned = true', [userId]);
+      if (parseInt(pinCount.rows[0].count) >= 3) {
+        return res.status(400).json({ error: "You can only pin up to 3 brews on your profile." });
+      }
+    }
+
+    const result = await pool.query(
+      'UPDATE brews SET is_pinned = $1 WHERE id = $2 RETURNING is_pinned',
+      [!isCurrentlyPinned, brewId]
+    );
+
+    res.json({ isPinned: result.rows[0].is_pinned });
+  } catch (err) {
+    console.error("Error toggling pin:", err.message);
+    res.status(500).json({ error: "Server error toggling pin status." });
+  }
+});
+
 app.post('/api/social/users/:username/follow', authenticateToken, async (req, res) => {
   try {
-    // Find the user ID of the person we want to follow
     const targetUser = await pool.query('SELECT id FROM users WHERE username = $1', [req.params.username]);
     if (targetUser.rowCount === 0) return res.status(404).json({ error: "User not found" });
     const targetId = targetUser.rows[0].id;
@@ -294,7 +316,6 @@ app.post('/api/social/users/:username/follow', authenticateToken, async (req, re
   }
 });
 
-// Check if we are following a specific user
 app.get('/api/social/users/:username/is_following', authenticateToken, async (req, res) => {
   try {
     const targetUser = await pool.query('SELECT id FROM users WHERE username = $1', [req.params.username]);
@@ -307,50 +328,16 @@ app.get('/api/social/users/:username/is_following', authenticateToken, async (re
   }
 });
 
-// Get a specific user's public feed
-app.get('/api/social/users/:username/brews', authenticateToken, async (req, res) => {
-  const { username } = req.params;
-  const page = parseInt(req.query.page) || 1;
-  const limit = 10;
-  const offset = (page - 1) * limit;
-
-  try {
-    const result = await pool.query(`
-      SELECT 
-        b.id, b.roastery, b.region, b.coffee_amount, b.roast_type, b.brew_method, 
-        b.blurb, b.created_at,
-        u.username AS author,
-        (SELECT COUNT(*) FROM likes WHERE brew_id = b.id) AS like_count,
-        (SELECT COUNT(*) FROM comments WHERE brew_id = b.id) AS comment_count,
-        EXISTS(SELECT 1 FROM likes WHERE brew_id = b.id AND user_id = $1) AS has_liked,
-        EXISTS(SELECT 1 FROM saved_recipes WHERE brew_id = b.id AND user_id = $1) AS has_saved
-      FROM brews b
-      JOIN users u ON b.user_id = u.id
-      WHERE b.is_public = true AND u.username = $2
-      ORDER BY b.created_at DESC
-      LIMIT $3 OFFSET $4
-    `, [req.user.id, username, limit, offset]);
-
-    res.json(result.rows);
-  } catch (err) {
-    console.error("Error fetching user profile:", err.message);
-    res.status(500).json({ error: "Failed to load user profile." });
-  }
-});
-
-// Toggle Like
 app.post('/api/social/brews/:id/like', authenticateToken, async (req, res) => {
   const brewId = req.params.id;
   const userId = req.user.id;
   try {
     const check = await pool.query('SELECT * FROM likes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
-    
     if (check.rows.length > 0) {
       await pool.query('DELETE FROM likes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
     } else {
       await pool.query('INSERT INTO likes (user_id, brew_id) VALUES ($1, $2)', [userId, brewId]);
     }
-
     const countResult = await pool.query('SELECT COUNT(*) FROM likes WHERE brew_id = $1', [brewId]);
     res.json({ hasLiked: check.rows.length === 0, like_count: countResult.rows[0].count });
   } catch (err) {
@@ -359,13 +346,11 @@ app.post('/api/social/brews/:id/like', authenticateToken, async (req, res) => {
   }
 });
 
-// Toggle Save
 app.post('/api/social/brews/:id/save', authenticateToken, async (req, res) => {
   const brewId = req.params.id;
   const userId = req.user.id;
   try {
     const check = await pool.query('SELECT * FROM saved_recipes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
-    
     if (check.rows.length > 0) {
       await pool.query('DELETE FROM saved_recipes WHERE user_id = $1 AND brew_id = $2', [userId, brewId]);
     } else {
@@ -378,7 +363,6 @@ app.post('/api/social/brews/:id/save', authenticateToken, async (req, res) => {
   }
 });
 
-// Get Comments for a Brew
 app.get('/api/social/brews/:id/comments', authenticateToken, async (req, res) => {
   try {
     const result = await pool.query(`
@@ -398,16 +382,12 @@ app.get('/api/social/brews/:id/comments', authenticateToken, async (req, res) =>
   }
 });
 
-// Post a new Comment
 app.post('/api/social/brews/:id/comments', authenticateToken, async (req, res) => {
   const { comment_text } = req.body;
-  const brewId = req.params.id;
-  const userId = req.user.id;
-
   try {
     const result = await pool.query(
       'INSERT INTO comments (user_id, brew_id, comment_text) VALUES ($1, $2, $3) RETURNING *',
-      [userId, brewId, comment_text]
+      [req.user.id, req.params.id, comment_text]
     );
     res.status(201).json(result.rows[0]);
   } catch (err) {
@@ -416,19 +396,16 @@ app.post('/api/social/brews/:id/comments', authenticateToken, async (req, res) =
   }
 });
 
-// Toggle Comment Like
 app.post('/api/social/comments/:id/like', authenticateToken, async (req, res) => {
   const commentId = req.params.id;
   const userId = req.user.id;
   try {
     const check = await pool.query('SELECT * FROM comment_likes WHERE user_id = $1 AND comment_id = $2', [userId, commentId]);
-    
     if (check.rows.length > 0) {
       await pool.query('DELETE FROM comment_likes WHERE user_id = $1 AND comment_id = $2', [userId, commentId]);
     } else {
       await pool.query('INSERT INTO comment_likes (user_id, comment_id) VALUES ($1, $2)', [userId, commentId]);
     }
-
     const countResult = await pool.query('SELECT COUNT(*) FROM comment_likes WHERE comment_id = $1', [commentId]);
     res.json({ hasLiked: check.rows.length === 0, like_count: countResult.rows[0].count });
   } catch (err) {
@@ -437,21 +414,14 @@ app.post('/api/social/comments/:id/like', authenticateToken, async (req, res) =>
   }
 });
 
-// Delete a Comment
 app.delete('/api/social/comments/:id', authenticateToken, async (req, res) => {
   const commentId = req.params.id;
-  const userId = req.user.id;
-  
   try {
     const result = await pool.query(
-      'DELETE FROM comments WHERE id = $1 AND user_id = $2 RETURNING *',
-      [commentId, userId]
+      'DELETE FROM comments WHERE id = $1 AND (user_id = $2 OR $3 = true) RETURNING *', 
+      [commentId, req.user.id, req.user.is_admin === true]
     );
-
-    if (result.rowCount === 0) {
-      return res.status(403).json({ error: "Unauthorized or comment not found." });
-    }
-
+    if (result.rowCount === 0) return res.status(403).json({ error: "Unauthorized or comment not found." });
     res.json({ message: "Comment deleted successfully", deletedId: commentId });
   } catch (err) {
     console.error("Error deleting comment:", err.message);

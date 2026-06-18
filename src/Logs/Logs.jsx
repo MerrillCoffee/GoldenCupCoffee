@@ -14,6 +14,8 @@ export default function Logs() {
   const [editRegion, setEditRegion] = useState("");
   const [editRoastery, setEditRoastery] = useState("");
   const [editRoastType, setEditRoastType] = useState("Medium");
+  const [editWaterTemp, setEditWaterTemp] = useState("");
+  const [editGrindSize, setEditGrindSize] = useState("Medium");
 
   const [sharingId, setSharingId] = useState(null);
   const [shareBlurb, setShareBlurb] = useState("");
@@ -21,7 +23,6 @@ export default function Logs() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(true);
 
-  // Updated to accept a pageNumber parameter
   const fetchLogs = async (pageNumber = 1) => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -44,9 +45,9 @@ export default function Logs() {
         }
 
         if (pageNumber === 1) {
-          setHistory(data);
+          setHistory(data); 
         } else {
-          setHistory(prev => [...prev, ...data]);
+          setHistory(prev => [...prev, ...data]); 
         }
       } else {
         setError(data.error || "Failed to load coffee history.");
@@ -59,7 +60,6 @@ export default function Logs() {
     }
   };
 
-  // Listen for page changes and fetch
   useEffect(() => {
     fetchLogs(page);
   }, [page]);
@@ -121,7 +121,9 @@ export default function Logs() {
           region: `${brew.region} (Copy)`,
           coffee_amount: brew.coffee_amount,
           roast_type: brew.roast_type,
-          brew_method: brew.brew_method
+          brew_method: brew.brew_method,
+          water_temp: brew.water_temp,
+          grind_size: brew.grind_size
         })
       });
 
@@ -163,7 +165,6 @@ export default function Logs() {
         setSharingId(null);
         setShareBlurb("");
         alert("Successfully shared to the community feed!");
-
         setHistory(prevHistory => prevHistory.map(b => 
           b.id === brewId ? { ...b, is_public: true } : b
         ));
@@ -180,6 +181,8 @@ export default function Logs() {
     setEditRegion(brew.region);
     setEditRoastery(brew.roastery || "");
     setEditRoastType(brew.roast_type);
+    setEditWaterTemp(brew.water_temp || "");
+    setEditGrindSize(brew.grind_size || "Medium");
     setSharingId(null); 
   };
 
@@ -195,7 +198,9 @@ export default function Logs() {
         body: JSON.stringify({
           roastery: editRoastery,
           region: editRegion,
-          roast_type: editRoastType
+          roast_type: editRoastType,
+          water_temp: editWaterTemp,
+          grind_size: editGrindSize 
         })
       });
 
@@ -243,41 +248,45 @@ export default function Logs() {
                 )}
               </div>
 
+              {/* --- EDIT MODE --- */}
               {editingId === brew.id ? (
-                <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap" }}>
-                  <input 
-                    type="text"
-                    placeholder="Roastery"
-                    value={editRoastery}
-                    onChange={(e) => setEditRoastery(e.target.value)}
-                    style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "120px" }}
-                  />
-                  <input 
-                    type="text"
-                    placeholder="Region"
-                    value={editRegion}
-                    onChange={(e) => setEditRegion(e.target.value)}
-                    style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "120px" }}
-                  />
-                  <select 
-                    value={editRoastType} 
-                    onChange={(e) => setEditRoastType(e.target.value)}
-                    style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}
-                  >
+                <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", width: "100%" }}>
+                  <input type="text" placeholder="Roastery" value={editRoastery} onChange={(e) => setEditRoastery(e.target.value)} style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "120px" }} />
+                  <input type="text" placeholder="Region" value={editRegion} onChange={(e) => setEditRegion(e.target.value)} style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "120px" }} />
+                  
+                  <select value={editGrindSize} onChange={(e) => setEditGrindSize(e.target.value)} style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}>
+                    <option value="Extra Fine">Extra Fine</option>
+                    <option value="Fine">Fine</option>
+                    <option value="Medium-Fine">Medium-Fine</option>
+                    <option value="Medium">Medium</option>
+                    <option value="Medium-Coarse">Medium-Coarse</option>
+                    <option value="Coarse">Coarse</option>
+                    <option value="Extra Coarse">Extra Coarse</option>
+                  </select>
+
+                  <input type="text" placeholder="Temp (e.g. 200°F)" value={editWaterTemp} onChange={(e) => setEditWaterTemp(e.target.value)} style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "90px" }} />
+
+                  <select value={editRoastType} onChange={(e) => setEditRoastType(e.target.value)} style={{ background: "#0d1117", border: "1px solid #30363d", padding: "6px", color: "#c9d1d9", borderRadius: "4px" }}>
                     <option value="Light">Light</option>
                     <option value="Medium">Medium</option>
                     <option value="Dark">Dark</option>
                   </select>
+
                   <button onClick={() => handleUpdate(brew.id)} style={{ padding: "6px 12px", background: "#2ea043", border: "none", color: "#fff", borderRadius: "4px", cursor: "pointer" }}>Save</button>
                   <button onClick={() => setEditingId(null)} style={{ padding: "6px 12px", background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9", borderRadius: "4px", cursor: "pointer" }}>Cancel</button>
                 </div>
               ) : (
+                
+                /* --- DISPLAY MODE --- */
                 <div style={{ width: sharingId === brew.id ? '100%' : 'auto' }}>
                   <h3 style={{ margin: "0 0 5px 0", color: "#58a6ff" }}>
                     {brew.roastery && `${brew.roastery} `}{brew.region} — <span style={{ color: "#8b949e", fontSize: "0.9em", fontWeight: "normal" }}>{brew.brew_method}</span>
                   </h3>
                   <p style={{ margin: "0", color: "#c9d1d9", fontSize: "0.95em" }}>
-                    Liquid Output: <strong style={{ color: "#2ea043" }}>{getLiquidOutput(brew.coffee_amount, brew.brew_method)}</strong> | Roast: <span style={{ color: "#79c0ff" }}>{brew.roast_type}</span>
+                    Liquid Output: <strong style={{ color: "#2ea043" }}>{getLiquidOutput(brew.coffee_amount, brew.brew_method)}</strong> | 
+                    Roast: <span style={{ color: "#79c0ff" }}>{brew.roast_type}</span>
+                    {brew.grind_size && <span> | Grind: <span style={{ color: "#d2a8ff" }}>{brew.grind_size}</span></span>}
+                    {brew.water_temp && <span> | Temp: <span style={{ color: "#ff7b72" }}>{brew.water_temp.replace(/Â/g, ' ')}</span></span>}
                   </p>
                 </div>
               )}
@@ -333,7 +342,6 @@ export default function Logs() {
         </div>
       )}
 
-      {/* --- Pagination Controls --- */}
       {hasMore && history.length > 0 && (
         <div style={{ textAlign: 'center', margin: '30px 0' }}>
           <button 
