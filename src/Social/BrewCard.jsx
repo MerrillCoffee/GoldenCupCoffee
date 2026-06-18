@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
 
-export default function BrewCard({ brew, currentUser, isAdmin, loadProfile, handleLike, handleSave, handlePin, handleDeletePost, getLiquidOutput }) {
+export default function BrewCard({ brew, currentUser, isAdmin, loadProfile, handleLike, handleSave, handlePin, handleDeletePost, getLiquidOutput, isProfileView }) {
   const [showComments, setShowComments] = useState(false);
   const [comments, setComments] = useState([]);
   const [commentText, setCommentText] = useState("");
   const [localCommentCount, setLocalCommentCount] = useState(parseInt(brew.comment_count));
+
+  const displayAsPinned = brew.is_pinned && isProfileView;
 
   const toggleComments = async () => {
     if (showComments) {
@@ -59,10 +61,10 @@ export default function BrewCard({ brew, currentUser, isAdmin, loadProfile, hand
   };
 
   return (
-    <div className="brew-card" style={brew.is_pinned ? { border: '1px solid #d2a8ff' } : {}}>
+    <div className="brew-card" style={displayAsPinned ? { border: '1px solid #d2a8ff' } : {}}>
       <div className="brew-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
         <div>
-          {brew.is_pinned && <div style={{ color: '#d2a8ff', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '8px' }}>📌 Pinned Brew</div>}
+          {displayAsPinned && <div style={{ color: '#d2a8ff', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '8px' }}>📌 Pinned Brew</div>}
           <span className="author" onClick={() => loadProfile(brew.author)} style={{ cursor: 'pointer', textDecoration: 'underline', textUnderlineOffset: '4px' }} title={`View @${brew.author}'s profile`}>
             @{brew.author}
           </span>

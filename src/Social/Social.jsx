@@ -210,6 +210,7 @@ const Social = () => {
             handlePin={handlePin} 
             handleDeletePost={handleDeletePost} 
             getLiquidOutput={getLiquidOutput} 
+            isProfileView={!!viewingProfile}
           />
         ))}
 

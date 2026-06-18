@@ -8,6 +8,7 @@ import Logs from "./Logs/Logs";
 import Register from "./account/Register";
 import Login from "./account/Login";
 import Social from './Social/Social';
+import Learning from './Learn/Learning';
 // Import other components as needed
 
 export default function App() {
@@ -28,7 +29,7 @@ export default function App() {
                 <Routes>
                     <Route path="/brew" element={<Brew />} />
                     <Route path="/logs" element={<Logs />}/>
-                    <Route path="/learning" element={<div>Learning Page Content</div>} />
+                    <Route path="/learning" element={<Learning />} />
                     <Route path="/social" element={<Social />} />
                     <Route path="/account" element={<Login />} />
                     <Route path="/account/register" element={<Register />} />
