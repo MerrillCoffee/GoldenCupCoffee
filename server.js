@@ -1,3 +1,9 @@
+import path from 'path';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 import express from 'express';
 import cors from 'cors';
 import pg from 'pg';
@@ -18,11 +24,8 @@ app.use(express.json());
 
 // --- PSQL pool ---
 const pool = new Pool({
-  user: process.env.DB_USER,
-  password: process.env.DB_PASSWORD,
-  host: process.env.DB_HOST,
-  port: process.env.DB_PORT,
-  database: process.env.DB_NAME,
+  connectionString: process.env.DATABASE_URL || `postgresql://${process.env.DB_USER}:${process.env.DB_PASSWORD}@${process.env.DB_HOST}:${process.env.DB_PORT}/${process.env.DB_NAME}`,
+  ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
 });
 
 // --- JWT Middleware ---
@@ -428,6 +431,18 @@ app.delete('/api/social/comments/:id', authenticateToken, async (req, res) => {
     res.status(500).json({ error: "Failed to delete comment" });
   }
 });
+
+// ==========================================
+// PRODUCTION FRONTEND SERVING
+// ==========================================
+
+if (process.env.NODE_ENV === 'production') {
+  app.use(express.static(path.join(__dirname, 'dist')));
+  
+  app.get('*', (req, res) => {
+    res.sendFile(path.join(__dirname, 'dist', 'index.html'));
+  });
+}
 
 app.listen(PORT, () => {
   console.log(`🚀 Golden Cup Backend API spinning hot on port ${PORT}`);
