@@ -29,21 +29,59 @@ export default function Stopwatch() {
   };
 
   return (
-    <div style={{ background: "#0d1117", border: "1px solid #30363d", padding: "15px", borderRadius: "6px", display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
+    <div style={{ 
+      background: "#0d1117", 
+      border: "1px solid #30363d", 
+      padding: "15px", 
+      borderRadius: "6px", 
+      display: "flex", 
+      flexDirection: "column", 
+      alignItems: "center", 
+      justifyContent: "center",
+      width: "100%",
+      boxSizing: "border-box"
+    }}>
       <h4 style={{ margin: "0 0 5px 0", color: "#8b949e" }}>⏱️ Extraction Stopwatch</h4>
       <div style={{ fontSize: "3.2em", fontWeight: "bold", fontFamily: "monospace", color: isActive ? "#58a6ff" : "#c9d1d9", margin: "10px 0" }}>
         {formatTime(time)}
       </div>
-      <div style={{ display: "flex", gap: "10px" }}>
+
+      <div style={{ 
+        display: "flex", 
+        gap: "10px", 
+        width: "100%", 
+        flexWrap: "wrap", 
+        justifyContent: "center" 
+      }}>
         <button 
           onClick={toggleTimer}
-          style={{ background: isActive ? "#da3637" : "#2ea043", color: "#ffffff", border: "none", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer", width: "80px" }}
+          style={{ 
+            background: isActive ? "#da3637" : "#2ea043", 
+            color: "#ffffff", 
+            border: "none", 
+            padding: "8px 16px", 
+            borderRadius: "6px", 
+            fontWeight: "bold", 
+            cursor: "pointer", 
+            flex: "1", 
+            minWidth: "80px" 
+          }}
         >
           {isActive ? "Stop" : "Start"}
         </button>
         <button 
           onClick={resetTimer}
-          style={{ background: "#21262d", color: "#c9d1d9", border: "1px solid #30363d", padding: "8px 16px", borderRadius: "6px", fontWeight: "bold", cursor: "pointer" }}
+          style={{ 
+            background: "#21262d", 
+            color: "#c9d1d9", 
+            border: "1px solid #30363d", 
+            padding: "8px 16px", 
+            borderRadius: "6px", 
+            fontWeight: "bold", 
+            cursor: "pointer", 
+            flex: "1", 
+            minWidth: "80px" 
+          }}
         >
           Reset
         </button>
