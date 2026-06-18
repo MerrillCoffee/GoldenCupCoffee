@@ -194,7 +194,7 @@ const Social = () => {
           )}
         </div>
       ) : (
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem', flexWrap: 'wrap', gap: '15px' }}>
           <h2 className="timeline-header" style={{ borderBottom: 'none', marginBottom: 0, paddingBottom: 0 }}>Community Brews</h2>
           <button onClick={() => setShowPostForm(!showPostForm)} style={{ background: showPostForm ? '#21262d' : '#238636', color: '#fff', border: 'none', padding: '6px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
             {showPostForm ? 'Cancel' : '📝 Share a Brew'}
@@ -203,7 +203,7 @@ const Social = () => {
       )}
 
       {!viewingProfile && (
-        <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px' }}>
+        <div style={{ display: 'flex', gap: '10px', marginBottom: '2rem', borderBottom: '1px solid #30363d', paddingBottom: '15px', flexWrap: 'wrap' }}>
           <button onClick={() => setFeedFilter('global')} style={{ padding: '6px 14px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', background: feedFilter === 'global' ? '#21262d' : 'transparent', color: feedFilter === 'global' ? '#c9d1d9' : '#8b949e', border: feedFilter === 'global' ? '1px solid #30363d' : '1px solid transparent' }}>🌍 Global Feed</button>
           <button onClick={() => setFeedFilter('following')} style={{ padding: '6px 14px', borderRadius: '20px', cursor: 'pointer', fontWeight: 'bold', background: feedFilter === 'following' ? '#21262d' : 'transparent', color: feedFilter === 'following' ? '#c9d1d9' : '#8b949e', border: feedFilter === 'following' ? '1px solid #30363d' : '1px solid transparent' }}>👥 Following</button>
         </div>

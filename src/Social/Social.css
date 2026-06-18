@@ -98,3 +98,31 @@
 .active-save {
   color: #3fb950;
 }
+
+/* ==========================================
+   MOBILE RESPONSIVENESS
+========================================== */
+@media (max-width: 600px) {
+  .brew-card-header {
+    flex-direction: column;
+    align-items: flex-start !important;
+    gap: 10px;
+  }
+
+  .brew-card-actions {
+    flex-wrap: wrap !important;
+    gap: 10px;
+  }
+
+  .brew-card-actions .action-btn {
+    flex: 1 1 auto;
+    text-align: center;
+    padding: 8px 12px;
+  }
+
+  .brew-card-actions button:last-child {
+    margin-left: 0 !important;
+    flex-basis: 100%;
+    justify-content: flex-end;
+  }
+}
