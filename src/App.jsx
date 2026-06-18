@@ -2,11 +2,11 @@ import { useState } from "react";
 import { BrowserRouter, Routes, Route, Link } from "react-router-dom";
 import { FaCoffee, FaClipboardList, FaBookOpen, FaGlobe, FaUserCircle } from "react-icons/fa";
 
-import Account from "./account/account";
+import Account from "./Account/Account";
 import Brew from "./Brew/Brew";
 import Logs from "./Logs/Logs";
-import Register from "./account/Register";
-import Login from "./account/Login";
+import Register from "./Account/Register";
+import Login from "./Account/Login";
 import Social from './Social/Social';
 import Learning from './Learn/Learning';
 // Import other components as needed
