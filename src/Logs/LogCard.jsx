@@ -28,20 +28,23 @@ export default function LogCard({ brew, getLiquidOutput, onUpdate, onDelete, onC
   };
 
   return (
-    <div className="log-card" style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: "6px", padding: "15px", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "10px" }}>
+    <div className="log-card" style={{ background: "#161b22", border: "1px solid #30363d", borderRadius: "6px", padding: "15px", display: "flex", flexDirection: "column", gap: "12px" }}>
       
-      <div style={{ width: '100%' }}>
-        {brew.is_saved_recipe ? (
-          <div className="log-origin-badge" style={{ color: '#8b949e', fontSize: '0.85rem', marginBottom: '8px' }}>
-            🔄 Saved from <span style={{ color: '#58a6ff', fontWeight: 'bold' }}>@{brew.author}</span>
-          </div>
-        ) : (
-          <div className="log-origin-badge" style={{ color: '#8b949e', fontSize: '0.85rem', marginBottom: '8px' }}>
-            📝 Your Original Brew
-          </div>
-        )}
+      {/* 1. Header Row (Badge + Date) */}
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+        <div className="log-origin-badge" style={{ color: '#8b949e', fontSize: '0.85rem' }}>
+          {brew.is_saved_recipe ? (
+            <>🔄 Saved from <span style={{ color: '#58a6ff', fontWeight: 'bold' }}>@{brew.author}</span></>
+          ) : (
+            <>📝 Your Original Brew</>
+          )}
+        </div>
+        <div style={{ fontSize: "0.85rem", color: "#8b949e" }}>
+          {new Date(brew.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric', year: 'numeric' })}
+        </div>
       </div>
 
+      {/* 2. Main Content Row */}
       {isEditing ? (
         <div style={{ display: "flex", gap: "10px", alignItems: "center", flexWrap: "wrap", width: "100%" }}>
           <input type="text" placeholder="Roastery" value={editForm.roastery} onChange={(e) => setEditForm({...editForm, roastery: e.target.value})} style={{ background: "#0d1117", border: "1px solid #2ea043", padding: "6px", color: "#c9d1d9", borderRadius: "4px", width: "120px" }} />
@@ -69,7 +72,7 @@ export default function LogCard({ brew, getLiquidOutput, onUpdate, onDelete, onC
           <button onClick={() => setIsEditing(false)} style={{ padding: "6px 12px", background: "#21262d", border: "1px solid #30363d", color: "#c9d1d9", borderRadius: "4px", cursor: "pointer" }}>Cancel</button>
         </div>
       ) : (
-        <div style={{ width: isSharing ? '100%' : 'auto' }}>
+        <div>
           <h3 style={{ margin: "0 0 5px 0", color: "#58a6ff" }}>
             {brew.roastery && `${brew.roastery} `}{brew.region} — <span style={{ color: "#8b949e", fontSize: "0.9em", fontWeight: "normal" }}>{brew.brew_method}</span>
           </h3>
@@ -82,8 +85,9 @@ export default function LogCard({ brew, getLiquidOutput, onUpdate, onDelete, onC
         </div>
       )}
 
+      {/* 3. Share Form Row */}
       {isSharing && (
-        <div style={{ width: "100%", marginTop: "10px", borderTop: "1px solid #30363d", paddingTop: "12px" }}>
+        <div style={{ width: "100%", marginTop: "5px", borderTop: "1px solid #30363d", paddingTop: "12px" }}>
           <label style={{ display: "block", color: "#3fb950", fontWeight: "bold", marginBottom: "8px", fontSize: "0.9em" }}>🌍 Share to Community</label>
           <textarea
             placeholder="Add a short blurb about this brew..."
@@ -98,30 +102,28 @@ export default function LogCard({ brew, getLiquidOutput, onUpdate, onDelete, onC
         </div>
       )}
 
-      <div style={{ display: "flex", alignItems: "center", gap: "12px", width: isSharing ? '100%' : 'auto' }}>
-        {!isEditing && !isSharing && (
-          <div style={{ display: "flex", gap: "6px", flexWrap: "wrap" }}>
-            {!brew.is_saved_recipe && (
-              <button onClick={() => setIsEditing(true)} style={{ background: "#21262d", color: "#58a6ff", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>✏️ Edit</button>
-            )}
-            {!brew.is_saved_recipe && !brew.is_public && (
-              <button onClick={() => setIsSharing(true)} style={{ background: "#21262d", color: "#3fb950", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>🌍 Share</button>
-            )}
-            {brew.is_public && (
-              <span style={{ fontSize: "0.85em", color: "#8b949e", alignSelf: "center", padding: "0 4px" }}>🌍 Shared</span>
-            )}
-            <button onClick={() => onCopy(brew)} style={{ background: "#21262d", color: "#79c0ff", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>📋 Copy</button>
-            <button onClick={() => onDelete(brew)} style={{ background: "#21262d", color: brew.is_saved_recipe ? "#d2a8ff" : "#f85149", border: "1px solid #30363d", padding: "4px 8px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85em" }}>
-              {brew.is_saved_recipe ? "🔖 Unsave" : "🗑️ Delete"}
-            </button>
-          </div>
-        )}
-        {!isSharing && (
-          <div style={{ fontSize: "0.85em", color: "#8b949e", marginLeft: "auto" }}>
-            {new Date(brew.created_at).toLocaleDateString(undefined, { month: 'short', day: 'numeric' })}
-          </div>
-        )}
-      </div>
+      {/* 4. Action Buttons Row */}
+      {!isEditing && !isSharing && (
+        <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginTop: "4px" }}>
+          {!brew.is_saved_recipe && (
+            <button onClick={() => setIsEditing(true)} style={{ background: "#21262d", color: "#58a6ff", border: "1px solid #30363d", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>✏️ Edit</button>
+          )}
+          
+          {!brew.is_saved_recipe && !brew.is_public && (
+            <button onClick={() => setIsSharing(true)} style={{ background: "#21262d", color: "#3fb950", border: "1px solid #30363d", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>🌍 Share</button>
+          )}
+          
+          {brew.is_public && (
+            <button disabled style={{ background: "transparent", color: "#8b949e", border: "1px solid #30363d", padding: "4px 10px", borderRadius: "4px", fontSize: "0.85rem", cursor: "default", opacity: 0.7 }}>🌍 Shared</button>
+          )}
+
+          <button onClick={() => onCopy(brew)} style={{ background: "#21262d", color: "#79c0ff", border: "1px solid #30363d", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>📋 Copy</button>
+          
+          <button onClick={() => onDelete(brew)} style={{ background: "#21262d", color: brew.is_saved_recipe ? "#d2a8ff" : "#f85149", border: "1px solid #30363d", padding: "4px 10px", borderRadius: "4px", cursor: "pointer", fontSize: "0.85rem" }}>
+            {brew.is_saved_recipe ? "🔖 Unsave" : "🗑️ Delete"}
+          </button>
+        </div>
+      )}
 
     </div>
   );
