@@ -33,8 +33,14 @@ const Social = () => {
   }
 
   const fetchFeed = async (pageNumber = 1, profileUser = viewingProfile, currentFilter = feedFilter) => {
+    const token = localStorage.getItem('token');
+    
+    if (!token) {
+      setLoading(false);
+      return;
+    }
+
     try {
-      const token = localStorage.getItem('token');
       const endpoint = profileUser 
         ? `/api/social/users/${profileUser}/brews?page=${pageNumber}`
         : `/api/social/feed?page=${pageNumber}&filter=${currentFilter}`;
@@ -156,6 +162,22 @@ const Social = () => {
     } catch (err) { console.error("Post delete error:", err.message); }
   };
   
+  // ==========================================
+  // EARLY RETURNS FOR RENDER LOGIC
+  // ==========================================
+
+  if (!currentUser) {
+    return (
+      <div className="social-container" style={{ textAlign: 'center', padding: '60px 20px' }}>
+        <div style={{ fontSize: '4rem', marginBottom: '15px' }}>🌍</div>
+        <h2 style={{ color: '#c9d1d9', marginBottom: '15px' }}>Join the Community</h2>
+        <p style={{ color: '#8b949e', fontSize: '1.1em', maxWidth: '500px', margin: '0 auto', lineHeight: '1.6' }}>
+          Please log in or create an account via the <strong>Account</strong> tab to view the community timeline, share your favorite brews, and interact with other coffee lovers!
+        </p>
+      </div>
+    );
+  }
+
   if (loading && page === 1) return <div className="timeline-message">Loading the brew feed...</div>;
   if (error) return <div className="timeline-message error">Error: {error}</div>;
 
