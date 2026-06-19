@@ -182,7 +182,7 @@ const Social = () => {
   if (error) return <div className="timeline-message error">Error: {error}</div>;
 
   return (
-    <div className="social-container">
+    <div className="social-container" style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
       {viewingProfile ? (
         <div style={{ 
           display: 'flex', 

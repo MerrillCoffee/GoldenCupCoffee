@@ -135,7 +135,7 @@ export default function Logs() {
   if (error) return <p style={{ color: "#f85149", padding: "20px" }}>{error}</p>;
 
   return (
-    <div className="logs-page" style={{ padding: "20px", maxWidth: "800px" }}>
+    <div className="logs-page" style={{ padding: "20px", maxWidth: "800px", margin: "0 auto" }}>
       <h2 style={{ color: "#c9d1d9", borderBottom: "1px solid #30363d", paddingBottom: "10px" }}>
         Your Personal Brew Logs
       </h2>
